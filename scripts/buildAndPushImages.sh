@@ -6,7 +6,7 @@ NEW_PREFIX="tienminhktvn2"
 
 echo "🚀 Building selected Petclinic services..."
 ./mvnw clean install -P buildDocker -DskipTests \
-  -pl spring-petclinic-customers-service,\
+  -pl spring-petclinic-api-gateway,\
 spring-petclinic-vets-service,\
 spring-petclinic-visits-service,\
 spring-petclinic-config-server,\
