@@ -5,7 +5,7 @@ OLD_PREFIX="springcommunity"
 NEW_PREFIX="tienminhktvn2"
 
 echo "🚀 Building selected Petclinic services..."
-./mvnw clean install -P buildDocker \
+./mvnw clean install -P buildDocker -DskipTests \
   -pl spring-petclinic-customers-service,\
 spring-petclinic-vets-service,\
 spring-petclinic-visits-service,\
