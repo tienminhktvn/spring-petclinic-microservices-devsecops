@@ -48,4 +48,12 @@ spring:
   config:
     activate:
       on-profile: docker
-    import: optional:configserver:${CONFIG_SERVER_URL:http://config-server:8888/}
+    import: configserver:${CONFIG_SERVER_URL:http://config-server:8888/}
+  cloud:
+      config:
+        fail-fast: true
+        retry:
+          max-attempts: 15
+          initial-interval: 2000
+          multiplier: 1.5
+          max-interval: 10000
