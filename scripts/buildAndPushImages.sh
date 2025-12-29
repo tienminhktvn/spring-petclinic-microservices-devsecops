@@ -10,7 +10,7 @@ echo "🚀 Building selected Petclinic services..."
 spring-petclinic-vets-service,\
 spring-petclinic-visits-service,\
 spring-petclinic-config-server,\
-spring-petclinic-api-gateway \
+spring-petclinic-customers-service \
   -am
 
 echo "🏷️ Retagging and pushing images..."
