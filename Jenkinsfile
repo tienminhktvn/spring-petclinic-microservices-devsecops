@@ -72,7 +72,7 @@ pipeline {
             steps {
                 sh '''
                     snyk auth ${SNYK_TOKEN}
-                    snyk test --all-projects --json > snyk-report.json || true
+                    snyk test --all-projects --print-deps --json > snyk-report.json || true
                     
                     # Convert JSON report to HTML
                     snyk-to-html -i snyk-report.json -o snyk-report.html || true

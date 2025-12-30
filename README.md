@@ -311,7 +311,39 @@ Make it executable:
 chmod +x .git/hooks/pre-commit
 ```
 
-### Step 3.4: Test Gitleaks
+### Step 3.4: Setup Pre-push Hook (Reject Push Policy)
+
+This hook ensures secrets cannot be pushed to the remote repository, even if the pre-commit hook is bypassed.
+
+Create `.git/hooks/pre-push`:
+
+```bash
+#!/bin/bash
+
+echo "🔍 Running Gitleaks pre-push scan..."
+
+# Run gitleaks on the entire repository
+gitleaks detect --source . --verbose --redact
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ PUSH BLOCKED: Secrets detected in repository!"
+    echo "Please remove the secrets before pushing."
+    echo ""
+    echo "If this is a false positive, update .gitleaks.toml allowlist"
+    exit 1
+fi
+
+echo "✅ No secrets detected. Proceeding with push."
+exit 0
+```
+
+Make it executable:
+```bash
+chmod +x .git/hooks/pre-push
+```
+
+### Step 3.5: Test Gitleaks
 
 ```bash
 # Scan entire repository
