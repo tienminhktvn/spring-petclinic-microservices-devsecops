@@ -1,5 +1,9 @@
 # DevSecOps Implementation Guide
 
+## Project Repository
+
+**GitHub URL:** https://github.com/tienminhktvn/spring-petclinic-microservices-devsecops
+
 ## Overview
 
 This guide covers implementing DevSecOps practices for the Spring PetClinic Microservices project:
@@ -13,11 +17,55 @@ This guide covers implementing DevSecOps practices for the Spring PetClinic Micr
 
 | Tool | Status | Address |
 |------|--------|---------|
-| Jenkins Server | ✅ Running | Your Jenkins URL |
+| Jenkins Server | ✅ Running | `192.168.195.115:8080` |
 | SonarQube Server | ✅ Running | `192.168.195.115:9000` |
+| Kubernetes Cluster | ✅ Running | - |
 | Snyk CLI | To install | - |
 | OWASP ZAP | To install | - |
 | Gitleaks | To install | - |
+
+---
+
+## Quick Start: Setup Jenkins Pipeline
+
+### Step 1: Create Jenkins Pipeline Job
+
+1. **Login to Jenkins** at `http://192.168.195.115:8080`
+
+2. **Create New Pipeline Job**
+   ```
+   New Item → Enter name: "spring-petclinic-devsecops" → Pipeline → OK
+   ```
+
+3. **Configure Pipeline from SCM**
+   ```
+   Pipeline section:
+   - Definition: Pipeline script from SCM
+   - SCM: Git
+   - Repository URL: https://github.com/tienminhktvn/spring-petclinic-microservices-devsecops.git
+   - Branch Specifier: */main
+   - Script Path: Jenkinsfile
+   ```
+
+4. **Save and Build**
+   - Click "Save"
+   - Click "Build Now" to run the pipeline
+
+### Step 2: Required Jenkins Configuration
+
+Before running the pipeline, ensure you have:
+
+1. **Jenkins Tools Configured** (`Manage Jenkins → Tools`):
+   - Maven: Name = `Maven-3.9`
+   - JDK: Name = `JDK-17`
+
+2. **Jenkins Credentials** (`Manage Jenkins → Credentials`):
+   - `snyk-token` - Snyk API token (Secret text)
+   - `sonarqube-token` - SonarQube token (Secret text)
+
+3. **SonarQube Server** (`Manage Jenkins → System → SonarQube servers`):
+   - Name: `SonarQube`
+   - URL: `http://192.168.195.115:9000`
 
 ---
 
