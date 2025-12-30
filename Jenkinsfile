@@ -15,14 +15,13 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                deleteDir()
                 checkout scm
-                sh 'git log --oneline -5'
             }
         }
         
         stage('Secret Scanning - Gitleaks') {
             steps {
-                echo '🔍 Scanning for secrets with Gitleaks...'
                 sh '''
                     gitleaks detect --source . --verbose --report-path gitleaks-report.json --report-format json || true
                 '''
@@ -32,14 +31,12 @@ pipeline {
         
         stage('Build') {
             steps {
-                echo '🔨 Building application...'
                 sh 'mvn clean compile -DskipTests'
             }
         }
         
         stage('Unit Tests') {
             steps {
-                echo '🧪 Running unit tests...'
                 sh 'mvn test'
             }
             post {
@@ -51,7 +48,6 @@ pipeline {
         
         stage('SAST - SonarQube Analysis') {
             steps {
-                echo '🔬 Running SonarQube analysis...'
                 withSonarQubeEnv('SonarQube') {
                     sh '''
                         mvn sonar:sonar \
@@ -65,7 +61,6 @@ pipeline {
         
         stage('Quality Gate') {
             steps {
-                echo '⏳ Waiting for SonarQube Quality Gate...'
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
@@ -74,20 +69,23 @@ pipeline {
         
         stage('Dependency Scanning - Snyk') {
             steps {
-                echo '🔍 Scanning dependencies with Snyk...'
                 sh '''
                     snyk auth ${SNYK_TOKEN}
                     snyk test --all-projects --json > snyk-report.json || true
                     snyk monitor --all-projects || true
+                    
+                    # Convert JSON report to HTML
+                    snyk-to-html -i snyk-report.json -o snyk-report.html || true
                 '''
-                archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
-            }
-        }
-        
-        stage('Build Docker Images') {
-            steps {
-                echo '🐳 Building Docker images...'
-                sh 'bash scripts/buildAndPushImages.sh'
+                archiveArtifacts artifacts: 'snyk-report.json, snyk-report.html', allowEmptyArchive: true
+                publishHTML(target: [
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: '.',
+                    reportFiles: 'snyk-report.html',
+                    reportName: 'Snyk Security Report'
+                ])
             }
         }
         
@@ -134,7 +132,6 @@ pipeline {
             echo '❌ Pipeline failed!'
         }
         cleanup {
-            echo '🧹 Cleaning up resources...'
             cleanWs()
         }
     }

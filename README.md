@@ -103,7 +103,33 @@ Before running the pipeline, ensure you have:
    - Name: `SonarScanner`
    - Install automatically: ✅
 
-### Step 1.3: Create sonar-project.properties
+### Step 1.3: Configure SonarQube Webhook to Jenkins
+
+This step is **required** for the Quality Gate to work properly. Without the webhook, Jenkins cannot receive the Quality Gate status from SonarQube.
+
+1. **Login to SonarQube** at `http://<SONARQUBE_URL>:9000`
+
+2. **Navigate to Webhooks**
+   ```
+   Administration → Configuration → Webhooks
+   ```
+
+3. **Create a new Webhook**
+   - Click **Create**
+   - Name: `Jenkins`
+   - URL: `http://<JENKINS_URL>:8080/sonarqube-webhook/`
+   - Secret: (leave empty or add a secret if needed)
+   - Click **Create**
+
+   > **Note**: Replace `<JENKINS_URL>` with your Jenkins server IP/hostname.
+   > Example: `http://192.168.195.115:8080/sonarqube-webhook/`
+
+4. **Verify Webhook**
+   - After running a pipeline, check the webhook delivery status
+   - Go to `Administration → Configuration → Webhooks → Jenkins → Recent Deliveries`
+   - Status should show ✅ (green checkmark)
+
+### Step 1.4: Create sonar-project.properties
 
 Create this file in your project root:
 
@@ -154,7 +180,19 @@ sonar.exclusions=**/target/**,**/node_modules/**
    mv snyk /usr/local/bin/
    ```
 
-3. **Authenticate Snyk**
+3. **Install snyk-to-html (for HTML Reports)**
+   ```bash
+   # Download the snyk-to-html binary
+   curl -Lo snyk-to-html https://github.com/snyk/snyk-to-html/releases/latest/download/snyk-to-html-linux
+   chmod +x snyk-to-html
+   mv snyk-to-html /usr/local/bin/
+   
+   # Verify installation
+   snyk-to-html --version
+   ```
+   > **Note**: This tool converts Snyk JSON output to readable HTML reports.
+
+4. **Authenticate Snyk**
    ```bash
    snyk auth <YOUR_SNYK_TOKEN>
    ```
