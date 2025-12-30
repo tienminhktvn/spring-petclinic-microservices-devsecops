@@ -114,12 +114,6 @@ pipeline {
                 docker rm -f ${ZAP_CONTAINER} || true
             '''
         }
-        success {
-            echo '✅ Pipeline completed successfully!'
-        }
-        failure {
-            echo '❌ Pipeline failed!'
-        }
         cleanup {
             cleanWs()
         }
