@@ -72,7 +72,6 @@ pipeline {
                 sh '''
                     snyk auth ${SNYK_TOKEN}
                     snyk test --all-projects --json > snyk-report.json || true
-                    snyk monitor --all-projects || true
                     
                     # Convert JSON report to HTML
                     snyk-to-html -i snyk-report.json -o snyk-report.html || true
@@ -89,6 +88,7 @@ pipeline {
                     
                     # Run ZAP baseline scan
                     docker run --name zap-scan \
+                      -v /zap/wrk \
                       -u 0 \
                       --network host \
                       -t zaproxy/zap-stable zap-baseline.py \
