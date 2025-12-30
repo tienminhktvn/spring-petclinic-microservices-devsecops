@@ -3,6 +3,7 @@ services:
     build:
       context: ./jenkins
     user: root
+    container_name: jenkins_server
     privileged: true
     restart: always
     ports:
