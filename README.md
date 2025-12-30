@@ -1,289 +1,630 @@
-# Distributed version of the Spring PetClinic Sample Application built with Spring Cloud and Spring AI
+# DevSecOps Implementation Guide
 
-[![Build Status](https://github.com/spring-petclinic/spring-petclinic-microservices/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-petclinic/spring-petclinic-microservices/actions/workflows/maven-build.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+## Overview
 
-This microservices branch was initially derived from [AngularJS version](https://github.com/spring-petclinic/spring-petclinic-angular1) to demonstrate how to split sample Spring application into [microservices](http://www.martinfowler.com/articles/microservices.html).
-To achieve that goal, we use Spring Cloud Gateway, Spring Cloud Circuit Breaker, Spring Cloud Config, Micrometer Tracing, Resilience4j, Open Telemetry 
-and the Eureka Service Discovery from the [Spring Cloud Netflix](https://github.com/spring-cloud/spring-cloud-netflix) technology stack.
+This guide covers implementing DevSecOps practices for the Spring PetClinic Microservices project:
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/spring-petclinic/spring-petclinic-microservices)
+1. **SAST** - SonarQube for static code analysis
+2. **Dependency Scanning** - Snyk for vulnerability detection
+3. **DAST** - OWASP ZAP for dynamic application security testing
+4. **Secret Scanning** - Gitleaks with Git hooks
 
-[![Open in Codeanywhere](https://codeanywhere.com/img/open-in-codeanywhere-btn.svg)](https://app.codeanywhere.com/#https://github.com/spring-petclinic/spring-petclinic-microservices)
+## Prerequisites
 
-## Starting services locally without Docker
+| Tool | Status | Address |
+|------|--------|---------|
+| Jenkins Server | ✅ Running | Your Jenkins URL |
+| SonarQube Server | ✅ Running | `192.168.195.115:9000` |
+| Snyk CLI | To install | - |
+| OWASP ZAP | To install | - |
+| Gitleaks | To install | - |
 
-Every microservice is a Spring Boot application and can be started locally using IDE or `../mvnw spring-boot:run` command.
-Please note that supporting services (Config and Discovery Server) must be started before any other application (Customers, Vets, Visits and API).
-Startup of Tracing server, Admin server, Grafana and Prometheus is optional.
-If everything goes well, you can access the following services at given location:
-* Discovery Server - http://localhost:8761
-* Config Server - http://localhost:8888
-* AngularJS frontend (API Gateway) - http://localhost:8080
-* Customers, Vets, Visits and GenAI Services - random port, check Eureka Dashboard 
-* Tracing Server (Zipkin) - http://localhost:9411/zipkin/ (we use [openzipkin](https://github.com/openzipkin/zipkin/tree/main/zipkin-server))
-* Admin Server (Spring Boot Admin) - http://localhost:9090
-* Grafana Dashboards - http://localhost:3030
-* Prometheus - http://localhost:9091
+---
 
-You can tell Config Server to use your local Git repository by using `native` Spring profile and setting
-`GIT_REPO` environment variable, for example:
-`-Dspring.profiles.active=native -DGIT_REPO=/projects/spring-petclinic-microservices-config`
+## Part 1: SonarQube Integration (SAST)
 
-## Starting services locally with docker-compose
-In order to start entire infrastructure using Docker, you have to build images by executing
-``bash
-./mvnw clean install -P buildDocker
-``
-This requires `Docker` or `Docker desktop` to be installed and running.
+### Step 1.1: Configure SonarQube Server
 
-Alternatively you can also build all the images on `Podman`, which requires Podman or Podman Desktop to be installed and running.
+1. **Login to SonarQube** at `http://192.168.195.115:9000`
+   - Default credentials: `admin/admin`
+   - Change password on first login
+
+2. **Generate Authentication Token**
+   ```
+   My Account → Security → Generate Tokens
+   Name: jenkins-token
+   Type: Global Analysis Token
+   ```
+   > ⚠️ Save this token! You'll need it for Jenkins.
+
+3. **Create Project in SonarQube**
+   ```
+   Projects → Create Project → Manually
+   Project Key: spring-petclinic-microservices
+   Display Name: Spring PetClinic Microservices
+   ```
+
+### Step 1.2: Configure Jenkins for SonarQube
+
+1. **Install Jenkins Plugins**
+   ```
+   Manage Jenkins → Plugins → Available plugins
+   ```
+   Install:
+   - SonarQube Scanner
+   - Pipeline Maven Integration
+   - Pipeline Utility Steps
+
+2. **Add SonarQube Server in Jenkins**
+   ```
+   Manage Jenkins → System → SonarQube servers
+   ```
+   - Name: `SonarQube`
+   - Server URL: `http://192.168.195.115:9000`
+   - Server authentication token: Add credentials (Secret text) with your SonarQube token
+
+3. **Configure SonarQube Scanner**
+   ```
+   Manage Jenkins → Tools → SonarQube Scanner installations
+   ```
+   - Name: `SonarScanner`
+   - Install automatically: ✅
+
+### Step 1.3: Create sonar-project.properties
+
+Create this file in your project root:
+
+```properties
+# sonar-project.properties
+sonar.projectKey=spring-petclinic-microservices
+sonar.projectName=Spring PetClinic Microservices
+sonar.projectVersion=1.0
+
+# Source directories
+sonar.sources=spring-petclinic-api-gateway/src/main/java,\
+  spring-petclinic-customers-service/src/main/java,\
+  spring-petclinic-vets-service/src/main/java,\
+  spring-petclinic-visits-service/src/main/java,\
+  spring-petclinic-config-server/src/main/java
+
+# Test directories
+sonar.tests=spring-petclinic-api-gateway/src/test/java,\
+  spring-petclinic-customers-service/src/test/java,\
+  spring-petclinic-vets-service/src/test/java,\
+  spring-petclinic-visits-service/src/test/java
+
+# Java version
+sonar.java.source=17
+
+# Encoding
+sonar.sourceEncoding=UTF-8
+
+# Exclusions
+sonar.exclusions=**/target/**,**/node_modules/**
+
+# Coverage report paths (if using JaCoCo)
+sonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml
+```
+
+---
+
+## Part 2: Snyk Integration (Dependency Scanning)
+
+### Step 2.1: Setup Snyk Account & CLI
+
+1. **Create Snyk Account**
+   - Go to https://snyk.io/
+   - Sign up (free tier available)
+   - Get your API token from Account Settings
+
+2. **Install Snyk CLI on Jenkins Agent**
+   ```bash
+   # Using npm
+   npm install -g snyk
+
+   # Or download binary
+   curl -Lo snyk https://static.snyk.io/cli/latest/snyk-linux
+   chmod +x snyk
+   sudo mv snyk /usr/local/bin/
+   ```
+
+3. **Authenticate Snyk**
+   ```bash
+   snyk auth <YOUR_SNYK_TOKEN>
+   ```
+
+### Step 2.2: Add Snyk Credentials to Jenkins
+
+```
+Manage Jenkins → Credentials → System → Global credentials
+```
+- Kind: Secret text
+- Secret: Your Snyk API token
+- ID: `snyk-token`
+- Description: Snyk API Token
+
+### Step 2.3: Test Snyk Locally
+
 ```bash
-./mvnw clean install -PbuildDocker -Dcontainer.executable=podman
+cd /home/minh04/spring-petclinic-microservices-devsecops
+
+# Test for vulnerabilities
+snyk test --all-projects
+
+# Generate HTML report
+snyk test --all-projects --json | snyk-to-html -o snyk-report.html
 ```
-By default, the Docker OCI image is build for an `linux/amd64` platform.
-For other architectures, you could change it by using the `-Dcontainer.platform` maven command line argument.
-For instance, if you target container images for an Apple M2, you could use the command line with the `linux/arm64` architecture:
+
+---
+
+## Part 3: OWASP ZAP Integration (DAST)
+
+### Step 3.1: Install OWASP ZAP
+
 ```bash
-./mvnw clean install -P buildDocker -Dcontainer.platform="linux/arm64"
+# Option 1: Docker (Recommended for CI/CD)
+docker pull zaproxy/zap-stable
+
+# Option 2: Download and install
+wget https://github.com/zaproxy/zaproxy/releases/download/v2.15.0/ZAP_2_15_0_unix.sh
+chmod +x ZAP_2_15_0_unix.sh
+./ZAP_2_15_0_unix.sh
 ```
 
-Once images are ready, you can start them with a single command
-`docker compose up` or `podman-compose up`. 
+### Step 3.2: ZAP Scan Scripts
 
-Containers startup order is coordinated with the `service_healthy` condition of the Docker Compose [depends-on](https://github.com/compose-spec/compose-spec/blob/main/spec.md#depends_on) expression 
-and the [healthcheck](https://github.com/compose-spec/compose-spec/blob/main/spec.md#healthcheck) of the service containers. 
-After starting services, it takes a while for API Gateway to be in sync with service registry,
-so don't be scared of initial Spring Cloud Gateway timeouts. You can track services availability using Eureka dashboard
-available by default at http://localhost:8761.
+Create `scripts/zap-scan.sh`:
 
-The `main` branch uses an Eclipse Temurin with Java 17 as Docker base image.
-
-*NOTE: Under MacOSX or Windows, make sure that the Docker VM has enough memory to run the microservices. The default settings
-are usually not enough and make the `docker-compose up` painfully slow.*
-
-
-## Starting services locally with docker-compose and Java
-If you experience issues with running the system via docker-compose you can try running the `./scripts/run_all.sh` script that will start the infrastructure services via docker-compose and all the Java based applications via standard `nohup java -jar ...` command. The logs will be available under `${ROOT}/target/nameoftheapp.log`. 
-
-Each of the java based applications is started with the `chaos-monkey` profile in order to interact with Spring Boot Chaos Monkey. You can check out the (README)[scripts/chaos/README.md] for more information about how to use the `./scripts/chaos/call_chaos.sh` helper script to enable assaults.
-
-## Understanding the Spring Petclinic application
-
-[See the presentation of the Spring Petclinic Framework version](http://fr.slideshare.net/AntoineRey/spring-framework-petclinic-sample-application)
-
-[A blog post introducing the Spring Petclinic Microsevices](http://javaetmoi.com/2018/10/architecture-microservices-avec-spring-cloud/) (french language)
-
-You can then access petclinic here: http://localhost:8080/
-
-## Microservices Overview
-
-This project consists of several microservices:
-- **Customers Service**: Manages customer data.
-- **Vets Service**: Handles information about veterinarians.
-- **Visits Service**: Manages pet visit records.
-- **GenAI Service**: Provides a chatbot interface to the application.
-- **API Gateway**: Routes client requests to the appropriate services.
-- **Config Server**: Centralized configuration management for all services.
-- **Discovery Server**: Eureka-based service registry.
-
-Each service has its own specific role and communicates via REST APIs.
-
-
-![Spring Petclinic Microservices screenshot](docs/application-screenshot.png)
-
-
-**Architecture diagram of the Spring Petclinic Microservices**
-
-![Spring Petclinic Microservices architecture](docs/microservices-architecture-diagram.jpg)
-
-## Integrating the Spring AI Chatbot
-
-Spring Petclinic integrates a Chatbot that allows you to interact with the application in a natural language. Here are some examples of what you could ask:
-
-1. Please list the owners that come to the clinic.
-2. Are there any vets that specialize in surgery?
-3. Is there an owner named Betty?
-4. Which owners have dogs?
-5. Add a dog for Betty. Its name is Moopsie.
-6. Create a new owner.
-
-![Screenshot of the chat dialog](docs/spring-ai.png)
-
-This `spring-petlinic-genai-service` microservice currently supports **OpenAI** (default) or **Azure's OpenAI** as the LLM provider.
-In order to start the microservice, perform the following steps:
-
-1. Decide which provider you want to use. By default, the `spring-ai-starter-model-openai` dependency is enabled. 
-   You can change it to `spring-ai-starter-model-azure-openai`in the `pom.xml`.
-2. Create an OpenAI API key or a Azure OpenAI resource in your Azure Portal.
-   Refer to the [OpenAI's quickstart](https://platform.openai.com/docs/quickstart) or [Azure's documentation](https://learn.microsoft.com/en-us/azure/ai-services/openai/) for further information on how to obtain these.
-   You only need to populate the provider you're using - either openai, or azure-openai.
-   If you don't have your own OpenAI API key, don't worry!
-   You can temporarily use the `demo` key, which OpenAI provides free of charge for demonstration purposes.
-   This `demo` key has a quota, is limited to the `gpt-4o-mini` model, and is intended solely for demonstration use.
-   With your own OpenAI account, you can test the `gpt-4o` model by modifying the `deployment-name` property of the `application.yml` file.
-3. Export your API keys and endpoint as environment variables:
-    * either OpenAI:
-    ```bash
-    export OPENAI_API_KEY="your_api_key_here"
-    ```
-    * or Azure OpenAI:
-    ```bash
-    export AZURE_OPENAI_ENDPOINT="https://your_resource.openai.azure.com"
-    export AZURE_OPENAI_KEY="your_api_key_here"
-    ```
-
-## In case you find a bug/suggested improvement for Spring Petclinic Microservices
-
-Our issue tracker is available here: https://github.com/spring-petclinic/spring-petclinic-microservices/issues
-
-## Database configuration
-
-In its default configuration, Petclinic uses an in-memory database (HSQLDB) which gets populated at startup with data.
-A similar setup is provided for MySql in case a persistent database configuration is needed.
-Dependency for Connector/J, the MySQL JDBC driver is already included in the `pom.xml` files.
-
-### Start a MySql database
-
-You may start a MySql database with docker:
-
-```
-docker run -e MYSQL_ROOT_PASSWORD=petclinic -e MYSQL_DATABASE=petclinic -p 3306:3306 mysql:8.4.5
-```
-or download and install the MySQL database (e.g., MySQL Community Server 8.4.5 LTS), which can be found here: https://dev.mysql.com/downloads/
-
-### Use the Spring 'mysql' profile
-
-To use a MySQL database, you have to start 3 microservices (`visits-service`, `customers-service` and `vets-services`)
-with the `mysql` Spring profile. Add the `--spring.profiles.active=mysql` as program argument.
-
-By default, at startup, database schema will be created and data will be populated.
-You may also manually create the PetClinic database and data by executing the `"db/mysql/{schema,data}.sql"` scripts of each 3 microservices. 
-In the `application.yml` of the [Configuration repository], set the `initialization-mode` to `never`.
-
-If you are running the microservices with Docker, you have to add the `mysql` profile into the (Dockerfile)[docker/Dockerfile]:
-```
-ENV SPRING_PROFILES_ACTIVE docker,mysql
-```
-In the `mysql section` of the `application.yml` from the [Configuration repository], you have to change 
-the host and port of your MySQL JDBC connection string. 
-
-## Custom metrics monitoring
-
-Grafana and Prometheus are included in the `docker-compose.yml` configuration, and the public facing applications
-have been instrumented with [MicroMeter](https://micrometer.io) to collect JVM and custom business metrics.
-
-A JMeter load testing script is available to stress the application and generate metrics: [petclinic_test_plan.jmx](spring-petclinic-api-gateway/src/test/jmeter/petclinic_test_plan.jmx)
-
-![Grafana metrics dashboard](docs/grafana-custom-metrics-dashboard.png)
-
-### Using Prometheus
-
-* Prometheus can be accessed from your local machine at http://localhost:9091
-
-### Using Grafana with Prometheus
-
-* An anonymous access and a Prometheus datasource are setup.
-* A `Spring Petclinic Metrics` Dashboard is available at the URL http://localhost:3030/d/69JXeR0iw/spring-petclinic-metrics.
-You will find the JSON configuration file here: [docker/grafana/dashboards/grafana-petclinic-dashboard.json]().
-* You may create your own dashboard or import the [Micrometer/SpringBoot dashboard](https://grafana.com/dashboards/4701) via the Import Dashboard menu item.
-The id for this dashboard is `4701`.
-
-### Custom metrics
-Spring Boot registers a lot number of core metrics: JVM, CPU, Tomcat, Logback... 
-The Spring Boot auto-configuration enables the instrumentation of requests handled by Spring MVC.
-All those three REST controllers `OwnerResource`, `PetResource` and `VisitResource` have been instrumented by the `@Timed` Micrometer annotation at class level.
-
-* `customers-service` application has the following custom metrics enabled:
-  * @Timed: `petclinic.owner`
-  * @Timed: `petclinic.pet`
-* `visits-service` application has the following custom metrics enabled:
-  * @Timed: `petclinic.visit`
-
-## Looking for something in particular?
-
-| Spring Cloud components         | Resources  |
-|---------------------------------|------------|
-| Configuration server            | [Config server properties](spring-petclinic-config-server/src/main/resources/application.yml) and [Configuration repository] |
-| Service Discovery               | [Eureka server](spring-petclinic-discovery-server) and [Service discovery client](spring-petclinic-vets-service/src/main/java/org/springframework/samples/petclinic/vets/VetsServiceApplication.java) |
-| API Gateway                     | [Spring Cloud Gateway starter](spring-petclinic-api-gateway/pom.xml) and [Routing configuration](/spring-petclinic-api-gateway/src/main/resources/application.yml) |
-| Docker Compose                  | [Spring Boot with Docker guide](https://spring.io/guides/gs/spring-boot-docker/) and [docker-compose file](docker-compose.yml) |
-| Circuit Breaker                 | [Resilience4j fallback method](spring-petclinic-api-gateway/src/main/java/org/springframework/samples/petclinic/api/boundary/web/ApiGatewayController.java)  |
-| Grafana / Prometheus Monitoring | [Micrometer implementation](https://micrometer.io/), [Spring Boot Actuator Production Ready Metrics] |
-
-|  Front-end module | Files |
-|-------------------|-------|
-| Node and NPM      | [The frontend-maven-plugin plugin downloads/installs Node and NPM locally then runs Bower and Gulp](spring-petclinic-ui/pom.xml)  |
-| Bower             | [JavaScript libraries are defined by the manifest file bower.json](spring-petclinic-ui/bower.json)  |
-| Gulp              | [Tasks automated by Gulp: minify CSS and JS, generate CSS from LESS, copy other static resources](spring-petclinic-ui/gulpfile.js)  |
-| Angular JS        | [app.js, controllers and templates](spring-petclinic-ui/src/scripts/)  |
-
-## Pushing to a Docker registry
-
-Docker images for `linux/amd64` and `linux/arm64` platforms have been published into DockerHub 
-in the [springcommunity](https://hub.docker.com/u/springcommunity) organization.
-You can pull an image:
 ```bash
-docker pull springcommunity/spring-petclinic-config-server
+#!/bin/bash
+
+TARGET_URL="${1:-http://192.168.195.115:32424}"
+REPORT_DIR="./zap-reports"
+REPORT_NAME="zap-report-$(date +%Y%m%d-%H%M%S)"
+
+mkdir -p $REPORT_DIR
+
+echo "🔍 Starting OWASP ZAP Baseline Scan..."
+echo "Target: $TARGET_URL"
+
+# Run ZAP Baseline Scan (passive scan - quick)
+docker run --rm -v $(pwd)/$REPORT_DIR:/zap/wrk:rw \
+  -t zaproxy/zap-stable zap-baseline.py \
+  -t $TARGET_URL \
+  -r ${REPORT_NAME}.html \
+  -J ${REPORT_NAME}.json \
+  -I
+
+echo "✅ Baseline scan complete!"
+echo "Reports saved to: $REPORT_DIR/"
+
+# For more thorough testing, use full scan (takes longer):
+# docker run --rm -v $(pwd)/$REPORT_DIR:/zap/wrk:rw \
+#   -t zaproxy/zap-stable zap-full-scan.py \
+#   -t $TARGET_URL \
+#   -r ${REPORT_NAME}-full.html
 ```
-You may prefer to build then push images to your own Docker registry.
 
-### Choose your Docker registry
+### Step 3.3: ZAP API Scan for REST APIs
 
-You need to define your target Docker registry.
-Make sure you're already logged in by running `docker login <endpoint>` or `docker login` if you're just targeting Docker hub.
+Create `scripts/zap-api-scan.sh`:
 
-Setup the `REPOSITORY_PREFIX` env variable to target your Docker registry.
-If you're targeting Docker hub, simple provide your username, for example:
 ```bash
-export REPOSITORY_PREFIX=springcommunity
+#!/bin/bash
+
+TARGET_URL="${1:-http://192.168.195.115:32424}"
+REPORT_DIR="./zap-reports"
+
+mkdir -p $REPORT_DIR
+
+echo "🔍 Starting OWASP ZAP API Scan..."
+
+# Scan specific API endpoints
+ENDPOINTS=(
+  "/api/customer/owners"
+  "/api/vet/vets"
+  "/api/visit/pets/visits?petId=1"
+  "/api/gateway/owners/1"
+)
+
+for endpoint in "${ENDPOINTS[@]}"; do
+  echo "Scanning: ${TARGET_URL}${endpoint}"
+  curl -s "${TARGET_URL}${endpoint}" > /dev/null
+done
+
+# Run ZAP with API scan
+docker run --rm -v $(pwd)/$REPORT_DIR:/zap/wrk:rw \
+  --network host \
+  -t zaproxy/zap-stable zap-baseline.py \
+  -t $TARGET_URL \
+  -r zap-api-report.html \
+  -J zap-api-report.json \
+  -I
+
+echo "✅ API scan complete!"
 ```
 
-For other Docker registries, provide the full URL to your repository, for example:
+---
+
+## Part 4: Gitleaks (Secret Scanning)
+
+### Step 4.1: Install Gitleaks
+
 ```bash
-export REPOSITORY_PREFIX=harbor.myregistry.com/petclinic
+# Option 1: Download binary
+wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
+tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
+sudo mv gitleaks /usr/local/bin/
+
+# Option 2: Using Go
+go install github.com/gitleaks/gitleaks/v8@latest
+
+# Verify installation
+gitleaks version
 ```
 
-To push Docker image for the `linux/amd64` and the `linux/arm64` platform to your own registry, please use the command line:
+### Step 4.2: Create Gitleaks Configuration
+
+Create `.gitleaks.toml` in project root:
+
+```toml
+# .gitleaks.toml
+title = "Gitleaks Configuration for Spring PetClinic"
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''\.git/''',
+    '''target/''',
+    '''node_modules/''',
+    '''\.idea/''',
+]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["aws", "credentials"]
+
+[[rules]]
+id = "aws-secret-key"
+description = "AWS Secret Key"
+regex = '''(?i)aws_secret_access_key\s*=\s*['\"]?([A-Za-z0-9/+=]{40})['\"]?'''
+tags = ["aws", "credentials"]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['\"]?([a-zA-Z0-9]{32,})['\"]?'''
+tags = ["api", "key"]
+
+[[rules]]
+id = "password-in-url"
+description = "Password in URL"
+regex = '''[a-zA-Z]{3,10}://[^/\s:@]{3,20}:[^/\s:@]{3,20}@.{1,100}'''
+tags = ["password", "url"]
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP) PRIVATE KEY-----'''
+tags = ["private", "key"]
+```
+
+### Step 4.3: Setup Pre-commit Hook
+
+Create `.git/hooks/pre-commit`:
+
 ```bash
-mvn clean install -Dmaven.test.skip -P buildDocker -Ddocker.image.prefix=${REPOSITORY_PREFIX} -Dcontainer.build.extraarg="--push" -Dcontainer.platform="linux/amd64,linux/arm64"
+#!/bin/bash
+
+echo "🔍 Running Gitleaks pre-commit scan..."
+
+# Run gitleaks on staged changes
+gitleaks protect --staged --verbose --redact
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ COMMIT BLOCKED: Secrets detected!"
+    echo "Please remove the secrets before committing."
+    echo ""
+    echo "To see details, run: gitleaks detect --verbose"
+    exit 1
+fi
+
+echo "✅ No secrets detected. Proceeding with commit."
+exit 0
 ```
 
-The `scripts/pushImages.sh` and `scripts/tagImages.sh` shell scripts could also be used once you build your image with the `buildDocker` maven profile.
-The `scripts/tagImages.sh` requires to declare the `VERSION` env variable.
-
-## Compiling the CSS
-
-There is a `petclinic.css` in `spring-petclinic-api-gateway/src/main/resources/static/css`.
-It was generated from the `petclinic.scss` source, combined with the [Bootstrap](https://getbootstrap.com/) library.
-If you make changes to the `scss`, or upgrade Bootstrap, you will need to re-compile the CSS resources
-using the Maven profile `css` of the `spring-petclinic-api-gateway`module.
+Make it executable:
 ```bash
-cd spring-petclinic-api-gateway
-mvn generate-resources -P css
+chmod +x .git/hooks/pre-commit
 ```
 
-## Interesting Spring Petclinic forks
+### Step 4.4: Test Gitleaks
 
-The Spring Petclinic `main` branch in the main [spring-projects](https://github.com/spring-projects/spring-petclinic)
-GitHub org is the "canonical" implementation, currently based on Spring Boot and Thymeleaf.
+```bash
+# Scan entire repository
+gitleaks detect --source . --verbose
 
-This [spring-petclinic-microservices](https://github.com/spring-petclinic/spring-petclinic-microservices/) project is one of the [several forks](https://spring-petclinic.github.io/docs/forks.html) 
-hosted in a special GitHub org: [spring-petclinic](https://github.com/spring-petclinic).
-If you have a special interest in a different technology stack
-that could be used to implement the Pet Clinic then please join the community there.
+# Scan staged files only
+gitleaks protect --staged --verbose
 
+# Generate report
+gitleaks detect --source . --report-path gitleaks-report.json --report-format json
+```
 
-## Contributing
+---
 
-The [issue tracker](https://github.com/spring-petclinic/spring-petclinic-microservices/issues) is the preferred channel for bug reports, features requests and submitting pull requests.
+## Part 5: Complete Jenkins Pipeline
 
-For pull requests, editor preferences are available in the [editor config](.editorconfig) for easy use in common text editors. Read more and download plugins at <http://editorconfig.org>.
+### Jenkinsfile
 
+Create `Jenkinsfile` in project root:
 
-[Configuration repository]: https://github.com/spring-petclinic/spring-petclinic-microservices-config
-[Spring Boot Actuator Production Ready Metrics]: https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-metrics.html
+```groovy
+pipeline {
+    agent any
+    
+    environment {
+        SONARQUBE_URL = 'http://192.168.195.115:9000'
+        APP_URL = 'http://192.168.195.115:32424'
+        SNYK_TOKEN = credentials('snyk-token')
+        DOCKER_REGISTRY = 'tienminhktvn2'
+    }
+    
+    tools {
+        maven 'Maven-3.9'
+        jdk 'JDK-17'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'git log --oneline -5'
+            }
+        }
+        
+        stage('Secret Scanning - Gitleaks') {
+            steps {
+                echo '🔍 Scanning for secrets with Gitleaks...'
+                sh '''
+                    gitleaks detect --source . --verbose --report-path gitleaks-report.json --report-format json || true
+                '''
+                archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                echo '🔨 Building application...'
+                sh 'mvn clean compile -DskipTests'
+            }
+        }
+        
+        stage('Unit Tests') {
+            steps {
+                echo '🧪 Running unit tests...'
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+        
+        stage('SAST - SonarQube Analysis') {
+            steps {
+                echo '🔬 Running SonarQube analysis...'
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=spring-petclinic-microservices \
+                          -Dsonar.projectName="Spring PetClinic Microservices" \
+                          -Dsonar.host.url=${SONARQUBE_URL}
+                    '''
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                echo '⏳ Waiting for SonarQube Quality Gate...'
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+        
+        stage('Dependency Scanning - Snyk') {
+            steps {
+                echo '🔍 Scanning dependencies with Snyk...'
+                sh '''
+                    snyk auth ${SNYK_TOKEN}
+                    snyk test --all-projects --json > snyk-report.json || true
+                    snyk monitor --all-projects || true
+                '''
+                archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
+            }
+        }
+        
+        stage('Build Docker Images') {
+            steps {
+                echo '🐳 Building Docker images...'
+                sh 'bash scripts/buildAndPushImages.sh'
+            }
+        }
+        
+        stage('Deploy to K8s') {
+            steps {
+                echo '🚀 Deploying to Kubernetes...'
+                sh '''
+                    helm upgrade --install spring-petclinic \
+                      /home/minh04/spring-petclinic-devsecops-manifests \
+                      -n spring-petclinic \
+                      --wait --timeout 5m
+                '''
+            }
+        }
+        
+        stage('DAST - OWASP ZAP') {
+            steps {
+                echo '🔍 Running OWASP ZAP scan...'
+                sh '''
+                    mkdir -p zap-reports
+                    
+                    # Wait for application to be ready
+                    sleep 30
+                    
+                    # Run ZAP baseline scan
+                    docker run --rm \
+                      -v $(pwd)/zap-reports:/zap/wrk:rw \
+                      --network host \
+                      -t zaproxy/zap-stable zap-baseline.py \
+                      -t ${APP_URL} \
+                      -r zap-report.html \
+                      -J zap-report.json \
+                      -I || true
+                '''
+                archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo '📊 Publishing reports...'
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'zap-reports',
+                reportFiles: 'zap-report.html',
+                reportName: 'ZAP Security Report'
+            ])
+        }
+        success {
+            echo '✅ Pipeline completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed!'
+        }
+    }
+}
+```
 
-## Supported by
+---
 
-[![JetBrains logo](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSourceSupport)
+## Part 6: Testing & Validation
+
+### Test 1: SonarQube Quality Gate
+
+```bash
+# Run SonarQube analysis locally
+mvn sonar:sonar \
+  -Dsonar.projectKey=spring-petclinic-microservices \
+  -Dsonar.host.url=http://192.168.195.115:9000 \
+  -Dsonar.login=<YOUR_SONAR_TOKEN>
+```
+
+**Expected Result:**
+- Check SonarQube dashboard for code smells, bugs, vulnerabilities
+- Quality Gate should PASS
+
+### Test 2: Snyk Dependency Scan
+
+```bash
+# Scan for vulnerabilities
+snyk test --all-projects
+
+# Monitor project continuously
+snyk monitor --all-projects
+```
+
+**Expected Result:**
+- List of vulnerable dependencies
+- Suggested fixes/upgrades
+
+### Test 3: OWASP ZAP Scan
+
+```bash
+# Run baseline scan
+bash scripts/zap-scan.sh http://192.168.195.115:32424
+```
+
+**Expected Result:**
+- HTML/JSON reports in `zap-reports/`
+- List of potential vulnerabilities (Low/Medium/High)
+
+### Test 4: Gitleaks Hook
+
+```bash
+# Test with a fake secret
+echo "aws_secret_access_key=AKIAIOSFODNN7EXAMPLE1234567890abcdef" > test-secret.txt
+git add test-secret.txt
+git commit -m "test secret detection"
+```
+
+**Expected Result:**
+- Commit should be BLOCKED
+- Error message showing detected secret
+
+---
+
+## Deliverables Checklist
+
+| Item | File/Location |
+|------|---------------|
+| ✅ Jenkinsfile | `Jenkinsfile` |
+| ✅ SonarQube properties | `sonar-project.properties` |
+| ✅ Snyk config | Jenkins credentials |
+| ✅ ZAP scan script | `scripts/zap-scan.sh` |
+| ✅ Gitleaks config | `.gitleaks.toml` |
+| ✅ Pre-commit hook | `.git/hooks/pre-commit` |
+| 📄 Snyk Report | `snyk-report.json` |
+| 📄 ZAP Report | `zap-reports/zap-report.html` |
+| 📄 Gitleaks Report | `gitleaks-report.json` |
+
+---
+
+## Quick Commands Reference
+
+```bash
+# SonarQube scan
+mvn sonar:sonar -Dsonar.host.url=http://192.168.195.115:9000
+
+# Snyk scan
+snyk test --all-projects
+
+# Gitleaks scan
+gitleaks detect --source . --verbose
+
+# ZAP scan
+docker run --rm -v $(pwd)/zap-reports:/zap/wrk:rw \
+  --network host \
+  zaproxy/zap-stable zap-baseline.py \
+  -t http://192.168.195.115:32424 \
+  -r report.html -I
+```
+
+---
+
+## Troubleshooting
+
+### SonarQube Issues
+- **Connection refused**: Check if SonarQube is running on port 9000
+- **Authentication failed**: Verify token in Jenkins credentials
+
+### Snyk Issues
+- **API token invalid**: Re-authenticate with `snyk auth`
+- **No projects found**: Run from directory with `pom.xml`
+
+### ZAP Issues
+- **Target unreachable**: Ensure app is deployed and accessible
+- **Docker network**: Use `--network host` for local targets
+
+### Gitleaks Issues
+- **Hook not running**: Check `chmod +x .git/hooks/pre-commit`
+- **False positives**: Update `.gitleaks.toml` allowlist
