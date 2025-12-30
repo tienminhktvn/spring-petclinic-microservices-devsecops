@@ -9,7 +9,7 @@ services:
       - "8080:8080"
       - "50000:50000"
     environment:
-      - JAVA_OPTS=-Xmx1024m -Djava.awt.headless=true
+      - JAVA_OPTS=-Xmx1280m -Djava.awt.headless=true
     volumes:
       - jenkins_data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
@@ -18,7 +18,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 1.5G
         reservations:
           memory: 512M
 
@@ -30,8 +30,8 @@ services:
       - "9000:9000"
     environment:
       - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
-      - SONAR_WEB_JAVA_OPTS=-Xmx384m -Xms256m
-      - SONAR_CE_JAVA_OPTS=-Xmx384m -Xms256m
+      - SONAR_WEB_JAVA_OPTS=-Xmx512m -Xms256m
+      - SONAR_CE_JAVA_OPTS=-Xmx512m -Xms256m
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
@@ -41,35 +41,15 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 2G
         reservations:
           memory: 512M
-
-  zap:
-    image: zaproxy/zap-stable
-    container_name: zap_server
-    restart: always
-    ports:
-      - "8090:8090"
-      - "8091:8091"
-    command: zap.sh -daemon -host 0.0.0.0 -port 8090 -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true -config api.disablekey=true
-    volumes:
-      - zap_data:/zap/wrk
-    networks:
-      - devsecops-net
-    deploy:
-      resources:
-        limits:
-          memory: 768M
-        reservations:
-          memory: 256M
 
 volumes:
   jenkins_data:
   sonarqube_data:
   sonarqube_extensions:
   sonarqube_logs:
-  zap_data:
 
 networks:
   devsecops-net:

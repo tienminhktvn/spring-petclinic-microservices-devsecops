@@ -91,12 +91,8 @@ pipeline {
         
         stage('DAST - OWASP ZAP') {
             steps {
-                echo '🔍 Running OWASP ZAP scan...'
                 sh '''
                     mkdir -p zap-reports
-                    
-                    # Wait for application to be ready
-                    sleep 30
                     
                     # Run ZAP baseline scan
                     docker run --rm \
