@@ -1,0 +1,44 @@
+title = "Gitleaks Configuration for Spring PetClinic"
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''\.git/''',
+    '''target/''',
+    '''node_modules/''',
+    '''\.idea/''',
+]
+# Allow example/demo secrets in documentation
+regexes = [
+    '''AKIAIOSFODNN7EXAMPLE''',
+]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["aws", "credentials"]
+
+[[rules]]
+id = "aws-secret-key"
+description = "AWS Secret Key"
+regex = '''(?i)aws_secret_access_key\s*=\s*['\"]?([A-Za-z0-9/+=]{40})['\"]?'''
+tags = ["aws", "credentials"]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['\"]?([a-zA-Z0-9]{32,})['\"]?'''
+tags = ["api", "key"]
+
+[[rules]]
+id = "password-in-url"
+description = "Password in URL"
+regex = '''[a-zA-Z]{3,10}://[^/\s:@]{3,20}:[^/\s:@]{3,20}@.{1,100}'''
+tags = ["password", "url"]
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP) PRIVATE KEY-----'''
+tags = ["private", "key"]

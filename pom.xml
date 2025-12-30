@@ -33,7 +33,6 @@
         <chaos-monkey-spring-boot.version>3.1.0</chaos-monkey-spring-boot.version>
         <jolokia-core.version>1.7.1</jolokia-core.version>
         <datasource-micrometer.version>2.0.1</datasource-micrometer.version>
-        <jacoco.version>0.8.12</jacoco.version>
 
         <docker.image.prefix>springcommunity</docker.image.prefix>
         <docker.image.exposed.port>9090</docker.image.exposed.port>
@@ -154,35 +153,6 @@
                                         </requireJavaVersion>
                                     </rules>
                                     <failFast>true</failFast>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    
-                    <!-- JaCoCo Code Coverage Plugin -->
-                    <plugin>
-                        <groupId>org.jacoco</groupId>
-                        <artifactId>jacoco-maven-plugin</artifactId>
-                        <version>${jacoco.version}</version>
-                        <executions>
-                            <execution>
-                                <id>prepare-agent</id>
-                                <goals>
-                                    <goal>prepare-agent</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>report</id>
-                                <phase>test</phase>
-                                <goals>
-                                    <goal>report</goal>
-                                </goals>
-                                <configuration>
-                                    <formats>
-                                        <format>HTML</format>
-                                        <format>XML</format>
-                                    </formats>
-                                    <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
                                 </configuration>
                             </execution>
                         </executions>

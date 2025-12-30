@@ -101,9 +101,6 @@ sonar.sourceEncoding=UTF-8
 
 # Exclusions
 sonar.exclusions=**/target/**,**/node_modules/**
-
-# Coverage report paths (if using JaCoCo)
-sonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml
 ```
 
 ---
