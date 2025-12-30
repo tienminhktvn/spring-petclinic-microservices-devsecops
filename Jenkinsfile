@@ -133,5 +133,9 @@ pipeline {
         failure {
             echo '❌ Pipeline failed!'
         }
+        cleanup {
+            echo '🧹 Cleaning up resources...'
+            cleanWs()
+        }
     }
 }
