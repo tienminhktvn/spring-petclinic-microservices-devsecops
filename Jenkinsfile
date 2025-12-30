@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     environment {
-        SONARQUBE_URL = 'http://192.168.195.115:9000'
+        SONARQUBE_URL = 'http://localhost:9000'
         APP_URL = 'http://192.168.195.115:32424'
         SNYK_TOKEN = credentials('snyk-token')
     }
@@ -88,18 +88,6 @@ pipeline {
             steps {
                 echo '🐳 Building Docker images...'
                 sh 'bash scripts/buildAndPushImages.sh'
-            }
-        }
-        
-        stage('Deploy to K8s') {
-            steps {
-                echo '🚀 Deploying to Kubernetes...'
-                sh '''
-                    helm upgrade --install spring-petclinic \
-                      /home/minh04/spring-petclinic-devsecops-manifests \
-                      -n spring-petclinic \
-                      --wait --timeout 5m
-                '''
             }
         }
         
