@@ -5,6 +5,7 @@ pipeline {
         SONARQUBE_URL = 'http://sonarqube:9000'
         APP_URL = 'http://192.168.195.115:32424'
         SNYK_TOKEN = credentials('snyk-token')
+        ZAP_CONTAINER = 'zap-scan'
     }
     
     tools {
@@ -85,9 +86,11 @@ pipeline {
                 sh '''
                     mkdir -p zap-reports
                     chmod 777 zap-reports
+
+                    docker rm -f ${ZAP_CONTAINER} || true
                     
                     # Run ZAP baseline scan
-                    docker run --name zap-scan \
+                    docker run --name ${ZAP_CONTAINER} \
                       -v /zap/wrk \
                       -u 0 \
                       --network host \
@@ -97,10 +100,8 @@ pipeline {
                       -J zap-report.json \
                       -I || true
 
-                    docker cp zap-scan:/zap/wrk/zap-report.html ./zap-reports/zap-report.html
-                    docker cp zap-scan:/zap/wrk/zap-report.json ./zap-reports/zap-report.json
-
-                    docker rm zap-scan
+                    docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html
+                    docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json
                 '''
                 archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
             }
@@ -108,6 +109,11 @@ pipeline {
     }
     
     post {
+        always {
+            sh '''
+                docker rm -f ${ZAP_CONTAINER} || true
+            '''
+        }
         success {
             echo '✅ Pipeline completed successfully!'
         }
