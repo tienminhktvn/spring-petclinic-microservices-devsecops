@@ -10,6 +10,7 @@ services:
       - "50000:50000"
     environment:
       - JAVA_OPTS=-Xmx1280m -Djava.awt.headless=true
+      - JAVA_OPTS=-Xmx1280m -Djava.awt.headless=true -Dhudson.model.DirectoryBrowserSupport.CSP=""
     volumes:
       - jenkins_data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock

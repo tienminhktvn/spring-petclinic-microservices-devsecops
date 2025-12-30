@@ -14,3 +14,13 @@ RUN curl -sS -L https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/g
     mv gitleaks /usr/local/bin/ && \
     chmod +x /usr/local/bin/gitleaks && \
     rm gitleaks.tar.gz
+
+# Snyk CLI
+RUN curl -Lo snyk https://static.snyk.io/cli/latest/snyk-linux && \
+    chmod +x snyk && \
+    mv snyk /usr/local/bin/
+
+# Snyk to HTML CLI
+RUN curl -Lo snyk-to-html https://github.com/snyk/snyk-to-html/releases/latest/download/snyk-to-html-linux  && \
+    chmod +x snyk-to-html && \
+    mv snyk-to-html /usr/local/bin/
