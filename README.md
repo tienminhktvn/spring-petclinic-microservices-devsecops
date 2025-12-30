@@ -1,9 +1,5 @@
 # DevSecOps Implementation Guide
 
-## Project Repository
-
-**GitHub URL:** https://github.com/tienminhktvn/spring-petclinic-microservices-devsecops
-
 ## Overview
 
 This guide covers implementing DevSecOps practices for the Spring PetClinic Microservices project:
@@ -13,24 +9,13 @@ This guide covers implementing DevSecOps practices for the Spring PetClinic Micr
 3. **DAST** - OWASP ZAP for dynamic application security testing
 4. **Secret Scanning** - Gitleaks with Git hooks
 
-## Prerequisites
-
-| Tool | Status | Address |
-|------|--------|---------|
-| Jenkins Server | ✅ Running | `192.168.195.115:8080` |
-| SonarQube Server | ✅ Running | `192.168.195.115:9000` |
-| Kubernetes Cluster | ✅ Running | - |
-| Snyk CLI | To install | - |
-| OWASP ZAP | To install | - |
-| Gitleaks | To install | - |
-
 ---
 
 ## Quick Start: Setup Jenkins Pipeline
 
 ### Step 1: Create Jenkins Pipeline Job
 
-1. **Login to Jenkins** at `http://192.168.195.115:8080`
+1. **Login to Jenkins**
 
 2. **Create New Pipeline Job**
    ```
@@ -108,7 +93,7 @@ Before running the pipeline, ensure you have:
    Manage Jenkins → System → SonarQube servers
    ```
    - Name: `SonarQube`
-   - Server URL: `http://192.168.195.115:9000`
+   - Server URL: `http://<SonarQube URL>:9000`
    - Server authentication token: Add credentials (Secret text) with your SonarQube token
 
 3. **Configure SonarQube Scanner**
@@ -164,13 +149,9 @@ sonar.exclusions=**/target/**,**/node_modules/**
 
 2. **Install Snyk CLI on Jenkins Agent**
    ```bash
-   # Using npm
-   npm install -g snyk
-
-   # Or download binary
    curl -Lo snyk https://static.snyk.io/cli/latest/snyk-linux
    chmod +x snyk
-   sudo mv snyk /usr/local/bin/
+   mv snyk /usr/local/bin/
    ```
 
 3. **Authenticate Snyk**
@@ -296,13 +277,10 @@ echo "✅ API scan complete!"
 ### Step 4.1: Install Gitleaks
 
 ```bash
-# Option 1: Download binary
+# Download binary
 wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
 tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
 sudo mv gitleaks /usr/local/bin/
-
-# Option 2: Using Go
-go install github.com/gitleaks/gitleaks/v8@latest
 
 # Verify installation
 gitleaks version
@@ -412,10 +390,9 @@ pipeline {
     agent any
     
     environment {
-        SONARQUBE_URL = 'http://192.168.195.115:9000'
+        SONARQUBE_URL = 'http://sonarqube:9000'
         APP_URL = 'http://192.168.195.115:32424'
         SNYK_TOKEN = credentials('snyk-token')
-        DOCKER_REGISTRY = 'tienminhktvn2'
     }
     
     tools {
@@ -467,7 +444,7 @@ pipeline {
                     sh '''
                         mvn sonar:sonar \
                           -Dsonar.projectKey=spring-petclinic-microservices \
-                          -Dsonar.projectName="Spring PetClinic Microservices" \
+                          -Dsonar.projectName=SpringPetClinicMicroservices \
                           -Dsonar.host.url=${SONARQUBE_URL}
                     '''
                 }
@@ -499,18 +476,6 @@ pipeline {
             steps {
                 echo '🐳 Building Docker images...'
                 sh 'bash scripts/buildAndPushImages.sh'
-            }
-        }
-        
-        stage('Deploy to K8s') {
-            steps {
-                echo '🚀 Deploying to Kubernetes...'
-                sh '''
-                    helm upgrade --install spring-petclinic \
-                      /home/minh04/spring-petclinic-devsecops-manifests \
-                      -n spring-petclinic \
-                      --wait --timeout 5m
-                '''
             }
         }
         
@@ -555,6 +520,10 @@ pipeline {
         }
         failure {
             echo '❌ Pipeline failed!'
+        }
+        cleanup {
+            echo '🧹 Cleaning up resources...'
+            cleanWs()
         }
     }
 }
@@ -638,7 +607,7 @@ git commit -m "test secret detection"
 
 ```bash
 # SonarQube scan
-mvn sonar:sonar -Dsonar.host.url=http://192.168.195.115:9000
+mvn sonar:sonar -Dsonar.host.url=http://<SonarQube URL>:9000
 
 # Snyk scan
 snyk test --all-projects
