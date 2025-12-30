@@ -4,9 +4,16 @@ repos:
     rev: v8.18.4
     hooks:
       - id: gitleaks
-        stages: [commit, push]
-        name: gitleaks
+        name: gitleaks (pre-commit)
         description: Detect hardcoded secrets using Gitleaks
         entry: gitleaks protect --verbose --redact --staged
         language: golang
         pass_filenames: false
+        stages: [pre-commit]
+      - id: gitleaks
+        name: gitleaks (pre-push)
+        description: Detect hardcoded secrets before push
+        entry: gitleaks detect --source . --verbose --redact
+        language: golang
+        pass_filenames: false
+        stages: [pre-push]
