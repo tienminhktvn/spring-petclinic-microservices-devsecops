@@ -5,7 +5,6 @@ pipeline {
         SONARQUBE_URL = 'http://192.168.195.115:9000'
         APP_URL = 'http://192.168.195.115:32424'
         SNYK_TOKEN = credentials('snyk-token')
-        DOCKER_REGISTRY = 'tienminhktvn2'
     }
     
     tools {
@@ -57,7 +56,7 @@ pipeline {
                     sh '''
                         mvn sonar:sonar \
                           -Dsonar.projectKey=spring-petclinic-microservices \
-                          -Dsonar.projectName="Spring PetClinic Microservices" \
+                          -Dsonar.projectName=SpringPetClinicMicroservices \
                           -Dsonar.host.url=${SONARQUBE_URL}
                     '''
                 }
