@@ -1,7 +1,7 @@
 services:
   jenkins:
-    image: jenkins/jenkins:lts
-    container_name: jenkins_server
+    build:
+      context: ./jenkins
     user: root
     privileged: true
     restart: always
