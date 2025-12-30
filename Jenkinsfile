@@ -78,14 +78,6 @@ pipeline {
                     snyk-to-html -i snyk-report.json -o snyk-report.html || true
                 '''
                 archiveArtifacts artifacts: 'snyk-report.json, snyk-report.html', allowEmptyArchive: true
-                publishHTML(target: [
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: '.',
-                    reportFiles: 'snyk-report.html',
-                    reportName: 'Snyk Security Report'
-                ])
             }
         }
         
@@ -93,9 +85,11 @@ pipeline {
             steps {
                 sh '''
                     mkdir -p zap-reports
+                    chmod 777 zap-reports
                     
                     # Run ZAP baseline scan
                     docker run --rm \
+                      -u 0 \
                       -v $(pwd)/zap-reports:/zap/wrk:rw \
                       --network host \
                       -t zaproxy/zap-stable zap-baseline.py \
@@ -110,17 +104,6 @@ pipeline {
     }
     
     post {
-        always {
-            echo '📊 Publishing reports...'
-            publishHTML(target: [
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'zap-reports',
-                reportFiles: 'zap-report.html',
-                reportName: 'ZAP Security Report'
-            ])
-        }
         success {
             echo '✅ Pipeline completed successfully!'
         }
