@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     environment {
-        SONARQUBE_URL = 'http://localhost:9000'
+        SONARQUBE_URL = 'http://sonarqube:9000'
         APP_URL = 'http://192.168.195.115:32424'
         SNYK_TOKEN = credentials('snyk-token')
     }
