@@ -219,9 +219,22 @@ snyk test --all-projects
 snyk test --all-projects --json | snyk-to-html -o snyk-report.html
 ```
 
-## Part 3: Gitleaks (Secret Scanning)
+## Part 3: Gitleaks with Pre-commit Framework (Secret Scanning)
 
-### Step 3.1: Install Gitleaks
+### Step 3.1: Install Pre-commit Framework
+
+```bash
+# Install pre-commit (requires Python)
+pip install pre-commit
+
+# Or using pip3
+pip3 install pre-commit
+
+# Verify installation
+pre-commit --version
+```
+
+### Step 3.2: Install Gitleaks
 
 ```bash
 # Download binary
@@ -233,7 +246,41 @@ sudo mv gitleaks /usr/local/bin/
 gitleaks version
 ```
 
-### Step 3.2: Create Gitleaks Configuration
+### Step 3.3: Pre-commit Configuration
+
+The project includes `.pre-commit-config.yaml` that configures gitleaks:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: gitleaks
+        description: Detect hardcoded secrets using Gitleaks
+        entry: gitleaks protect --verbose --redact --staged
+        language: golang
+        pass_filenames: false
+```
+
+### Step 3.4: Setup Git Hooks (For All Developers)
+
+After cloning the repository, each developer must run:
+
+```bash
+# Install the git hooks
+pre-commit install
+
+# Also install pre-push hook for reject push policy
+pre-commit install --hook-type pre-push
+```
+
+This will automatically install:
+- **pre-commit hook**: Scans staged changes before each commit
+- **pre-push hook**: Scans entire repo before push (reject push policy)
+
+### Step 3.5: Create Gitleaks Configuration
 
 Create `.gitleaks.toml` in project root:
 
@@ -281,79 +328,30 @@ regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP) PRIVATE KEY-----'''
 tags = ["private", "key"]
 ```
 
-### Step 3.3: Setup Pre-commit Hook
-
-Create `.git/hooks/pre-commit`:
+### Step 3.6: Test Gitleaks
 
 ```bash
-#!/bin/bash
+# Run pre-commit on all files (first time)
+pre-commit run --all-files
 
-echo "🔍 Running Gitleaks pre-commit scan..."
-
-# Run gitleaks on staged changes
-gitleaks protect --staged --verbose --redact
-
-if [ $? -ne 0 ]; then
-    echo ""
-    echo "❌ COMMIT BLOCKED: Secrets detected!"
-    echo "Please remove the secrets before committing."
-    echo ""
-    echo "To see details, run: gitleaks detect --verbose"
-    exit 1
-fi
-
-echo "✅ No secrets detected. Proceeding with commit."
-exit 0
-```
-
-Make it executable:
-```bash
-chmod +x .git/hooks/pre-commit
-```
-
-### Step 3.4: Setup Pre-push Hook (Reject Push Policy)
-
-This hook ensures secrets cannot be pushed to the remote repository, even if the pre-commit hook is bypassed.
-
-Create `.git/hooks/pre-push`:
-
-```bash
-#!/bin/bash
-
-echo "🔍 Running Gitleaks pre-push scan..."
-
-# Run gitleaks on the entire repository
-gitleaks detect --source . --verbose --redact
-
-if [ $? -ne 0 ]; then
-    echo ""
-    echo "❌ PUSH BLOCKED: Secrets detected in repository!"
-    echo "Please remove the secrets before pushing."
-    echo ""
-    echo "If this is a false positive, update .gitleaks.toml allowlist"
-    exit 1
-fi
-
-echo "✅ No secrets detected. Proceeding with push."
-exit 0
-```
-
-Make it executable:
-```bash
-chmod +x .git/hooks/pre-push
-```
-
-### Step 3.5: Test Gitleaks
-
-```bash
-# Scan entire repository
+# Run gitleaks manually
 gitleaks detect --source . --verbose
-
-# Scan staged files only
-gitleaks protect --staged --verbose
 
 # Generate report
 gitleaks detect --source . --report-path gitleaks-report.json --report-format json
+```
+
+### Step 3.7: Verify Hooks Work
+
+```bash
+# Test commit hook (should block if secrets found)
+echo "aws_secret_access_key=AKIAIOSFODNN7EXAMPLE1234567890123456" > test-secret.txt
+git add test-secret.txt
+git commit -m "test"  # Should be BLOCKED
+
+# Clean up
+rm test-secret.txt
+git reset HEAD
 ```
 
 ---

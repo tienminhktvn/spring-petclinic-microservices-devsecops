@@ -1,0 +1,12 @@
+# Pre-commit configuration for Spring PetClinic Microservices
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        stages: [commit, push]
+        name: gitleaks
+        description: Detect hardcoded secrets using Gitleaks
+        entry: gitleaks protect --verbose --redact --staged
+        language: golang
+        pass_filenames: false

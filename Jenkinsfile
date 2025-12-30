@@ -20,16 +20,7 @@ pipeline {
                 checkout scm
             }
         }
-        
-        stage('Secret Scanning - Gitleaks') {
-            steps {
-                sh '''
-                    gitleaks detect --source . --verbose --report-path gitleaks-report.json --report-format json || true
-                '''
-                archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
-            }
-        }
-        
+
         stage('Build') {
             steps {
                 sh 'mvn clean compile -DskipTests'
