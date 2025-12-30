@@ -88,15 +88,19 @@ pipeline {
                     chmod 777 zap-reports
                     
                     # Run ZAP baseline scan
-                    docker run --rm \
+                    docker run --name zap-scan \
                       -u 0 \
-                      -v $(pwd)/zap-reports:/zap/wrk:rw \
                       --network host \
                       -t zaproxy/zap-stable zap-baseline.py \
                       -t ${APP_URL} \
                       -r zap-report.html \
                       -J zap-report.json \
                       -I || true
+
+                    docker cp zap-scan:/zap/wrk/zap-report.html ./zap-reports/zap-report.html
+                    docker cp zap-scan:/zap/wrk/zap-report.json ./zap-reports/zap-report.json
+
+                    docker rm zap-scan
                 '''
                 archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
             }

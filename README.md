@@ -219,100 +219,9 @@ snyk test --all-projects
 snyk test --all-projects --json | snyk-to-html -o snyk-report.html
 ```
 
----
+## Part 3: Gitleaks (Secret Scanning)
 
-## Part 3: OWASP ZAP Integration (DAST)
-
-### Step 3.1: Install OWASP ZAP
-
-```bash
-# Option 1: Docker (Recommended for CI/CD)
-docker pull zaproxy/zap-stable
-
-# Option 2: Download and install
-wget https://github.com/zaproxy/zaproxy/releases/download/v2.15.0/ZAP_2_15_0_unix.sh
-chmod +x ZAP_2_15_0_unix.sh
-./ZAP_2_15_0_unix.sh
-```
-
-### Step 3.2: ZAP Scan Scripts
-
-Create `scripts/zap-scan.sh`:
-
-```bash
-#!/bin/bash
-
-TARGET_URL="${1:-http://192.168.195.115:32424}"
-REPORT_DIR="./zap-reports"
-REPORT_NAME="zap-report-$(date +%Y%m%d-%H%M%S)"
-
-mkdir -p $REPORT_DIR
-
-echo "🔍 Starting OWASP ZAP Baseline Scan..."
-echo "Target: $TARGET_URL"
-
-# Run ZAP Baseline Scan (passive scan - quick)
-docker run --rm -v $(pwd)/$REPORT_DIR:/zap/wrk:rw \
-  -t zaproxy/zap-stable zap-baseline.py \
-  -t $TARGET_URL \
-  -r ${REPORT_NAME}.html \
-  -J ${REPORT_NAME}.json \
-  -I
-
-echo "✅ Baseline scan complete!"
-echo "Reports saved to: $REPORT_DIR/"
-
-# For more thorough testing, use full scan (takes longer):
-# docker run --rm -v $(pwd)/$REPORT_DIR:/zap/wrk:rw \
-#   -t zaproxy/zap-stable zap-full-scan.py \
-#   -t $TARGET_URL \
-#   -r ${REPORT_NAME}-full.html
-```
-
-### Step 3.3: ZAP API Scan for REST APIs
-
-Create `scripts/zap-api-scan.sh`:
-
-```bash
-#!/bin/bash
-
-TARGET_URL="${1:-http://192.168.195.115:32424}"
-REPORT_DIR="./zap-reports"
-
-mkdir -p $REPORT_DIR
-
-echo "🔍 Starting OWASP ZAP API Scan..."
-
-# Scan specific API endpoints
-ENDPOINTS=(
-  "/api/customer/owners"
-  "/api/vet/vets"
-  "/api/visit/pets/visits?petId=1"
-  "/api/gateway/owners/1"
-)
-
-for endpoint in "${ENDPOINTS[@]}"; do
-  echo "Scanning: ${TARGET_URL}${endpoint}"
-  curl -s "${TARGET_URL}${endpoint}" > /dev/null
-done
-
-# Run ZAP with API scan
-docker run --rm -v $(pwd)/$REPORT_DIR:/zap/wrk:rw \
-  --network host \
-  -t zaproxy/zap-stable zap-baseline.py \
-  -t $TARGET_URL \
-  -r zap-api-report.html \
-  -J zap-api-report.json \
-  -I
-
-echo "✅ API scan complete!"
-```
-
----
-
-## Part 4: Gitleaks (Secret Scanning)
-
-### Step 4.1: Install Gitleaks
+### Step 3.1: Install Gitleaks
 
 ```bash
 # Download binary
@@ -324,7 +233,7 @@ sudo mv gitleaks /usr/local/bin/
 gitleaks version
 ```
 
-### Step 4.2: Create Gitleaks Configuration
+### Step 3.2: Create Gitleaks Configuration
 
 Create `.gitleaks.toml` in project root:
 
@@ -372,7 +281,7 @@ regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP) PRIVATE KEY-----'''
 tags = ["private", "key"]
 ```
 
-### Step 4.3: Setup Pre-commit Hook
+### Step 3.3: Setup Pre-commit Hook
 
 Create `.git/hooks/pre-commit`:
 
@@ -402,7 +311,7 @@ Make it executable:
 chmod +x .git/hooks/pre-commit
 ```
 
-### Step 4.4: Test Gitleaks
+### Step 3.4: Test Gitleaks
 
 ```bash
 # Scan entire repository
@@ -417,7 +326,7 @@ gitleaks detect --source . --report-path gitleaks-report.json --report-format js
 
 ---
 
-## Part 5: Complete Jenkins Pipeline
+## Part 4: Complete Jenkins Pipeline
 
 ### Jenkinsfile
 
@@ -569,7 +478,7 @@ pipeline {
 
 ---
 
-## Part 6: Testing & Validation
+## Part 5: Testing & Validation
 
 ### Test 1: SonarQube Quality Gate
 
@@ -622,22 +531,6 @@ git commit -m "test secret detection"
 **Expected Result:**
 - Commit should be BLOCKED
 - Error message showing detected secret
-
----
-
-## Deliverables Checklist
-
-| Item | File/Location |
-|------|---------------|
-| ✅ Jenkinsfile | `Jenkinsfile` |
-| ✅ SonarQube properties | `sonar-project.properties` |
-| ✅ Snyk config | Jenkins credentials |
-| ✅ ZAP scan script | `scripts/zap-scan.sh` |
-| ✅ Gitleaks config | `.gitleaks.toml` |
-| ✅ Pre-commit hook | `.git/hooks/pre-commit` |
-| 📄 Snyk Report | `snyk-report.json` |
-| 📄 ZAP Report | `zap-reports/zap-report.html` |
-| 📄 Gitleaks Report | `gitleaks-report.json` |
 
 ---
 
