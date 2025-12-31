@@ -38,6 +38,30 @@ pipeline {
             }
         }
         
+        stage('Code Coverage - JaCoCo') {
+            steps {
+                sh 'mvn jacoco:report'
+            }
+            post {
+                always {
+                    jacoco(
+                        execPattern: '**/target/jacoco.exec',
+                        classPattern: '**/target/classes',
+                        sourcePattern: '**/src/main/java',
+                        exclusionPattern: '**/test/**'
+                    )
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'spring-petclinic-api-gateway/target/site/jacoco',
+                        reportFiles: 'index.html',
+                        reportName: 'JaCoCo Code Coverage Report'
+                    ])
+                }
+            }
+        }
+        
         stage('SAST - SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -45,7 +69,8 @@ pipeline {
                         mvn sonar:sonar \
                           -Dsonar.projectKey=spring-petclinic-microservices \
                           -Dsonar.projectName=SpringPetClinicMicroservices \
-                          -Dsonar.host.url=${SONARQUBE_URL}
+                          -Dsonar.host.url=${SONARQUBE_URL} \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=*/target/site/jacoco/jacoco.xml
                     '''
                 }
             }
