@@ -82,7 +82,7 @@ pipeline {
         //         '''
         //         archiveArtifacts artifacts: 'snyk-report.json, snyk-report.html', allowEmptyArchive: true
         //     }
-        }
+        //}
         
         stage('DAST - OWASP ZAP') {
             steps {
