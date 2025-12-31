@@ -89,26 +89,27 @@ pipeline {
                 sh '''
                     mkdir -p zap-reports
                     chmod 777 zap-reports
-
                     echo "10003\tIGNORE\t(Vulnerable JS Library)" > zap-rules.conf
-                    chmod 777 zap-rules.conf
 
-		    docker rm -f ${ZAP_CONTAINER} || true
-                    
-                    # Run ZAP baseline scan
-                    docker run --name ${ZAP_CONTAINER} \
-                      -v $(pwd):/zap/wrk:rw \
-                      -u 0 \
+                    docker rm -f ${ZAP_CONTAINER} || true
+
+                    docker run -d --name ${ZAP_CONTAINER} \
                       --network host \
-                      -t zaproxy/zap-stable zap-baseline.py \
+                      -u 0 \
+                      zaproxy/zap-stable \
+                      sleep 3000
+
+                    docker cp zap-rules.conf ${ZAP_CONTAINER}:/zap/zap-rules.conf
+
+                    docker exec ${ZAP_CONTAINER} zap-baseline.py \
                       -t ${APP_URL} \
                       -r zap-report.html \
                       -J zap-report.json \
-		      -c zap-rules.conf \
+                      -c /zap/zap-rules.conf \
                       -I || true
 
-                    docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html
-                    docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json
+                    docker cp ${ZAP_CONTAINER}:/zap/zap-report.html ./zap-reports/zap-report.html || true
+                    docker cp ${ZAP_CONTAINER}:/zap/zap-report.json ./zap-reports/zap-report.json || true
                 '''
                 archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
             }
