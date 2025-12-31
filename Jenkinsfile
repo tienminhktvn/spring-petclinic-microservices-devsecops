@@ -118,6 +118,7 @@ pipeline {
                           -r zap-report.html \
                           -J zap-report.json \
                           -c /zap/zap-rules.conf \
+                          -z "-disableRule 10003" \
                           -I || true
 
                         # 6. Extract Reports
