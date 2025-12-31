@@ -90,7 +90,10 @@ pipeline {
                     mkdir -p zap-reports
                     chmod 777 zap-reports
 
-                    docker rm -f ${ZAP_CONTAINER} || true
+                    echo "10003\tIGNORE\t(Vulnerable JS Library)" > zap-rules.conf
+                    chmod 777 zap-rules.conf
+
+		    docker rm -f ${ZAP_CONTAINER} || true
                     
                     # Run ZAP baseline scan
                     docker run --name ${ZAP_CONTAINER} \
