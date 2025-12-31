@@ -101,6 +101,7 @@ pipeline {
                       -t ${APP_URL} \
                       -r zap-report.html \
                       -J zap-report.json \
+		      -c zap-rules.conf \
                       -I || true
 
                     docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html
