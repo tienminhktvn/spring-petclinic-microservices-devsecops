@@ -94,20 +94,11 @@ pipeline {
                         mkdir -p zap-reports
                         chmod 777 zap-reports
 
-                        # 2. GENERATE RULES (For the OTHER warnings)
-                        # We do NOT include 10003 here. We kill it with the -z flag below.
-                        printf "10027\\tIGNORE\\t(Suspicious Comments)\\n" > zap-rules.conf
-                        printf "10049\\tIGNORE\\t(Cacheable Content)\\n" >> zap-rules.conf
-                        printf "10055\\tIGNORE\\t(CSP Issues)\\n" >> zap-rules.conf
-                        printf "10109\\tIGNORE\\t(Modern Web App)\\n" >> zap-rules.conf
-                        printf "10110\\tIGNORE\\t(Dangerous JS Functions)\\n" >> zap-rules.conf
-                        printf "90004\\tIGNORE\\t(Spectre Site Isolation)\\n" >> zap-rules.conf
-
-                        # 3. Create Volume
+                        # 2. Create Volume (Required for Docker-in-Docker)
                         docker volume create ${zapVolume}
                         docker rm -f \${ZAP_CONTAINER} || true
 
-                        # 4. Start ZAP
+                        # 3. Start ZAP
                         docker run -d --name \${ZAP_CONTAINER} \
                           --network host \
                           -u 0 \
@@ -115,12 +106,13 @@ pipeline {
                           zaproxy/zap-stable \
                           sleep 3000
 
-                        # 5. Copy Rules
+                        # 4. Copy YOUR EXISTING Config File
+                        # This copies 'zap-rules.conf' from the Jenkins workspace to the container.
                         docker cp zap-rules.conf \${ZAP_CONTAINER}:/zap/zap-rules.conf
 
-                        # 6. Run Scan (THE FIX IS HERE)
-                        # We removed the backslashes. 
-                        # This sets the Passive Scan Threshold for Rule 10003 to OFF.
+                        # 5. Run Scan
+                        # -c uses your file to IGNORE the medium/low warnings.
+                        # -z completely DISABLES rule 10003 (Vulnerable JS) so it's not in the report.
                         docker exec \${ZAP_CONTAINER} zap-baseline.py \
                           -t \${APP_URL} \
                           -r zap-report.html \
@@ -129,11 +121,11 @@ pipeline {
                           -z "-config pscan.rules(10003).threshold=OFF" \
                           -I || true
 
-                        # 7. Extract Reports
+                        # 6. Extract Reports
                         docker cp \${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html || true
                         docker cp \${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json || true
                         
-                        # 8. Cleanup
+                        # 7. Cleanup
                         docker rm -f \${ZAP_CONTAINER} || true
                         docker volume rm ${zapVolume} || true
                     """
