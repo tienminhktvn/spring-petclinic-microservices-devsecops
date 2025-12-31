@@ -88,34 +88,36 @@ pipeline {
             steps {
                 script {
                     def zapVolume = "zap-vol-${BUILD_NUMBER}"
-                    
-                    sh'''
+
+                    sh """
                         mkdir -p zap-reports
                         chmod 777 zap-reports
 
+                        # Groovy injects this value:
                         docker volume create ${zapVolume}
 
-                        docker rm -f ${ZAP_CONTAINER} || true
-                        docker run -d --name ${ZAP_CONTAINER} \
+                        docker rm -f \${ZAP_CONTAINER} || true
+                        
+                        docker run -d --name \${ZAP_CONTAINER} \
                           --network host \
                           -u 0 \
                           -v ${zapVolume}:/zap/wrk:rw \
                           zaproxy/zap-stable \
                           sleep 3000
 
-                        docker exec ${ZAP_CONTAINER} zap-baseline.py \
-                          -t ${APP_URL} \
+                        docker exec \${ZAP_CONTAINER} zap-baseline.py \
+                          -t \${APP_URL} \
                           -r zap-report.html \
                           -J zap-report.json \
-                          -z "-config globalexcludeurl.url_list.url(0).regex=^.*/webjars/.*$" \
+                          -z "-config globalexcludeurl.url_list.url(0).regex=^.*/webjars/.*\$" \
                           -I || true
 
-                        docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html || true
-                        docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json || true
+                        docker cp \${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html || true
+                        docker cp \${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json || true
 
-                        docker rm -f ${ZAP_CONTAINER} || true
+                        docker rm -f \${ZAP_CONTAINER} || true
                         docker volume rm ${zapVolume} || true
-                    '''
+                    """
                 }
                 archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
             }
