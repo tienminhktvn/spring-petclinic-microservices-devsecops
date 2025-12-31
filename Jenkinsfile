@@ -89,7 +89,7 @@ pipeline {
                 script {
                     def zapVolume = "zap-vol-${BUILD_NUMBER}"
                     
-                    sh """
+                    sh'''
                         mkdir -p zap-reports
                         chmod 777 zap-reports
 
@@ -115,7 +115,7 @@ pipeline {
 
                         docker rm -f ${ZAP_CONTAINER} || true
                         docker volume rm ${zapVolume} || true
-                    """
+                    '''
                 }
                 archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
             }
