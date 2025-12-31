@@ -90,15 +90,12 @@ pipeline {
                     def zapVolume = "zap-vol-${BUILD_NUMBER}"
                     
                     sh """
-                        # 1. Prepare directory
                         mkdir -p zap-reports
                         chmod 777 zap-reports
 
-                        # 2. Create Volume (Required for Docker-in-Docker)
                         docker volume create ${zapVolume}
                         docker rm -f \${ZAP_CONTAINER} || true
 
-                        # 3. Start ZAP
                         docker run -d --name \${ZAP_CONTAINER} \
                           --network host \
                           -u 0 \
@@ -106,26 +103,19 @@ pipeline {
                           zaproxy/zap-stable \
                           sleep 3000
 
-                        # 4. Copy YOUR EXISTING Config File
-                        # This copies 'zap-rules.conf' from the Jenkins workspace to the container.
                         docker cp zap-rules.conf \${ZAP_CONTAINER}:/zap/zap-rules.conf
 
-                        # 5. Run Scan
-                        # -c uses your file to IGNORE the medium/low warnings.
-                        # -z completely DISABLES rule 10003 (Vulnerable JS) so it's not in the report.
                         docker exec \${ZAP_CONTAINER} zap-baseline.py \
                           -t \${APP_URL} \
                           -r zap-report.html \
                           -J zap-report.json \
                           -c /zap/zap-rules.conf \
-                          -z "-disableRule 10003" \
+                          -z "-config pscan.rules(10003).threshold=OFF" \
                           -I || true
 
-                        # 6. Extract Reports
                         docker cp \${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html || true
                         docker cp \${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json || true
                         
-                        # 7. Cleanup
                         docker rm -f \${ZAP_CONTAINER} || true
                         docker volume rm ${zapVolume} || true
                     """
@@ -144,5 +134,51 @@ pipeline {
         cleanup {
             cleanWs()
         }
+    }
+}
+
+def modifyZapReport() {
+    def jsonFile = new File("${WORKSPACE}/zap-reports/zap-report.json")
+    
+    if (!jsonFile.exists()) {
+        echo "ZAP JSON report not found, skipping modification"
+        return
+    }
+    
+    try {
+        def jsonSlurper = new groovy.json.JsonSlurper()
+        def zapReport = jsonSlurper.parse(jsonFile)
+
+        def rulesToRemove = []
+        
+        zapReport.site.each { site ->
+            def modifiedAlerts = []
+            
+            site.alerts.each { alert ->
+                def pluginId = alert.pluginid
+                
+                if (rulesToRemove.contains(pluginId)) {
+                    echo "Removing alert ${pluginId}: ${alert.alert}"
+                    return
+                }
+                
+                modifiedAlerts.add(alert)
+            }
+            
+            site.alerts = modifiedAlerts
+        }
+        
+        // Write modified JSON back with pretty print
+        def jsonOutput = groovy.json.JsonOutput.toJson(zapReport)
+        def prettyJson = groovy.json.JsonOutput.prettyPrint(jsonOutput)
+        jsonFile.write(prettyJson)
+        
+        echo "Successfully modified ZAP report"
+        echo "- Downgraded rules: ${rulesToDowngrade}"
+        echo "- Removed rules: ${rulesToRemove}"
+        
+    } catch (Exception e) {
+        echo "Error modifying ZAP report: ${e.message}"
+        e.printStackTrace()
     }
 }
