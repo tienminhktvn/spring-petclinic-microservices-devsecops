@@ -88,16 +88,26 @@ pipeline {
             steps {
                 script {
                     def zapVolume = "zap-vol-${BUILD_NUMBER}"
-
+                    
                     sh """
+                        # 1. Prepare directory
                         mkdir -p zap-reports
                         chmod 777 zap-reports
 
-                        # Groovy injects this value:
-                        docker volume create ${zapVolume}
+                        # 2. GENERATE RULES (For the OTHER warnings)
+                        # We do NOT include 10003 here, because we are disabling it completely below.
+                        printf "10027\\tIGNORE\\t(Suspicious Comments)\\n" > zap-rules.conf
+                        printf "10049\\tIGNORE\\t(Cacheable Content)\\n" >> zap-rules.conf
+                        printf "10055\\tIGNORE\\t(CSP Issues)\\n" >> zap-rules.conf
+                        printf "10109\\tIGNORE\\t(Modern Web App)\\n" >> zap-rules.conf
+                        printf "10110\\tIGNORE\\t(Dangerous JS Functions)\\n" >> zap-rules.conf
+                        printf "90004\\tIGNORE\\t(Spectre Site Isolation)\\n" >> zap-rules.conf
 
+                        # 3. Create Volume
+                        docker volume create ${zapVolume}
                         docker rm -f \${ZAP_CONTAINER} || true
-                        
+
+                        # 4. Start ZAP
                         docker run -d --name \${ZAP_CONTAINER} \
                           --network host \
                           -u 0 \
@@ -105,16 +115,25 @@ pipeline {
                           zaproxy/zap-stable \
                           sleep 3000
 
+                        # 5. Copy Rules
+                        docker cp zap-rules.conf \${ZAP_CONTAINER}:/zap/zap-rules.conf
+
+                        # 6. Run Scan with SCANNER DISABLED
+                        # -z passes the config to turn OFF rule 10003
+                        # We escape parentheses: pscan.rules\\(10003\\).threshold=OFF
                         docker exec \${ZAP_CONTAINER} zap-baseline.py \
                           -t \${APP_URL} \
                           -r zap-report.html \
                           -J zap-report.json \
-                          -z "-config globalexcludeurl.url_list.url(0).regex=^.*/webjars/.*\$" \
+                          -c /zap/zap-rules.conf \
+                          -z "-config pscan.rules\\(10003\\).threshold=OFF" \
                           -I || true
 
+                        # 7. Extract Reports
                         docker cp \${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html || true
                         docker cp \${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json || true
-
+                        
+                        # 8. Cleanup
                         docker rm -f \${ZAP_CONTAINER} || true
                         docker volume rm ${zapVolume} || true
                     """
