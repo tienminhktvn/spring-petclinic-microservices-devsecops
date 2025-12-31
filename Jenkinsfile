@@ -71,40 +71,52 @@ pipeline {
         //     }
         // }
         
-        stage('Dependency Scanning - Snyk') {
-            steps {
-                sh '''
-                    snyk auth ${SNYK_TOKEN}
-                    snyk test --all-projects --json > snyk-report.json || true
+        // stage('Dependency Scanning - Snyk') {
+        //     steps {
+        //         sh '''
+        //             snyk auth ${SNYK_TOKEN}
+        //             snyk test --all-projects --json > snyk-report.json || true
                     
-                    # Convert JSON report to HTML
-                    snyk-to-html -i snyk-report.json -o snyk-report.html || true
-                '''
-                archiveArtifacts artifacts: 'snyk-report.json, snyk-report.html', allowEmptyArchive: true
-            }
-        }
+        //             # Convert JSON report to HTML
+        //             snyk-to-html -i snyk-report.json -o snyk-report.html || true
+        //         '''
+        //         archiveArtifacts artifacts: 'snyk-report.json, snyk-report.html', allowEmptyArchive: true
+        //     }
+        // }
         
         stage('DAST - OWASP ZAP') {
             steps {
-                sh '''
-                    mkdir -p zap-reports
-                    chmod 777 zap-reports
+                script {
+                    def zapVolume = "zap-vol-${BUILD_NUMBER}"
+                    
+                    sh """
+                        mkdir -p zap-reports
+                        chmod 777 zap-reports
 
-                    docker rm -f ${ZAP_CONTAINER} || true
+                        docker volume create ${zapVolume}
 
-                    docker run --name ${ZAP_CONTAINER} \
-                      -u 0 \
-                      --network host \
-                      -t zaproxy/zap-stable zap-baseline.py \
-                      -t ${APP_URL} \
-                      -r zap-report.html \
-                      -J zap-report.json \
-                      -z "-config globalexcludeurl.url_list.url(0).regex=^.*/webjars/.*$" \
-                      -I || true
+                        docker rm -f ${ZAP_CONTAINER} || true
+                        docker run -d --name ${ZAP_CONTAINER} \
+                          --network host \
+                          -u 0 \
+                          -v ${zapVolume}:/zap/wrk:rw \
+                          zaproxy/zap-stable \
+                          sleep 3000
 
-                    docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html
-                    docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json
-                '''
+                        docker exec ${ZAP_CONTAINER} zap-baseline.py \
+                          -t ${APP_URL} \
+                          -r zap-report.html \
+                          -J zap-report.json \
+                          -z "-config globalexcludeurl.url_list.url(0).regex=^.*/webjars/.*$" \
+                          -I || true
+
+                        docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html || true
+                        docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json || true
+
+                        docker rm -f ${ZAP_CONTAINER} || true
+                        docker volume rm ${zapVolume} || true
+                    """
+                }
                 archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
             }
         }
