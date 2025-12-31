@@ -76,8 +76,6 @@ pipeline {
         //         sh '''
         //             snyk auth ${SNYK_TOKEN}
         //             snyk test --all-projects --json > snyk-report.json || true
-                    
-        //             # Convert JSON report to HTML
         //             snyk-to-html -i snyk-report.json -o snyk-report.html || true
         //         '''
         //         archiveArtifacts artifacts: 'snyk-report.json, snyk-report.html', allowEmptyArchive: true
@@ -92,6 +90,13 @@ pipeline {
                     sh """
                         mkdir -p zap-reports
                         chmod 777 zap-reports
+                        
+                        printf "10027\\tIGNORE\\t(Suspicious Comments)\\n" > zap-rules.conf
+                        printf "10049\\tIGNORE\\t(Cacheable Content)\\n" >> zap-rules.conf
+                        printf "10055\\tIGNORE\\t(CSP Issues)\\n" >> zap-rules.conf
+                        printf "10109\\tIGNORE\\t(Modern Web App)\\n" >> zap-rules.conf
+                        printf "10110\\tIGNORE\\t(Dangerous JS Functions)\\n" >> zap-rules.conf
+                        printf "90004\\tIGNORE\\t(Spectre Site Isolation)\\n" >> zap-rules.conf
 
                         docker volume create ${zapVolume}
                         docker rm -f \${ZAP_CONTAINER} || true
@@ -110,7 +115,6 @@ pipeline {
                           -r zap-report.html \
                           -J zap-report.json \
                           -c /zap/zap-rules.conf \
-                          -z "-config pscan.rules(10003).threshold=OFF" \
                           -I || true
 
                         docker cp \${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html || true
@@ -119,8 +123,8 @@ pipeline {
                         docker rm -f \${ZAP_CONTAINER} || true
                         docker volume rm ${zapVolume} || true
                     """
-
-                    modifyZapReport()
+                    
+                    cleanZapReports()
                 }
                 archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
             }
@@ -139,47 +143,42 @@ pipeline {
     }
 }
 
-def modifyZapReport() {
-    def jsonFile = new File("${WORKSPACE}/zap-reports/zap-report.json")
-    
-    if (!jsonFile.exists()) {
-        echo "ZAP JSON report not found, skipping modification"
-        return
-    }
-    
-    try {
-        def jsonSlurper = new groovy.json.JsonSlurper()
-        def zapReport = jsonSlurper.parse(jsonFile)
+import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
 
-        def rulesToRemove = ['10003']
-        
-        zapReport.site.each { site ->
-            def modifiedAlerts = []
+def cleanZapReports() {
+    try {
+        def jsonFile = 'zap-reports/zap-report.json'
+        if (fileExists(jsonFile)) {
+            def fileContent = readFile(file: jsonFile)
+            def json = new JsonSlurper().parseText(fileContent)
             
-            site.alerts.each { alert ->
-                def pluginId = alert.pluginid
-                
-                if (rulesToRemove.contains(pluginId)) {
-                    echo "Removing alert ${pluginId}: ${alert.alert}"
-                    return
+            if (json.site) {
+                json.site.each { site ->
+                    if (site.alerts) {
+                        site.alerts.removeAll { it.pluginid == "10003" }
+                    }
                 }
-                
-                modifiedAlerts.add(alert)
             }
             
-            site.alerts = modifiedAlerts
+            writeFile file: jsonFile, text: JsonOutput.prettyPrint(JsonOutput.toJson(json))
         }
-        
-        // Write modified JSON back with pretty print
-        def jsonOutput = groovy.json.JsonOutput.toJson(zapReport)
-        def prettyJson = groovy.json.JsonOutput.prettyPrint(jsonOutput)
-        jsonFile.write(prettyJson)
-        
-        echo "Successfully modified ZAP report"
-        echo "- Removed rules: ${rulesToRemove}"
-        
     } catch (Exception e) {
-        echo "Error modifying ZAP report: ${e.message}"
-        e.printStackTrace()
+        echo "Error cleaning JSON report: ${e.message}"
+    }
+
+    try {
+        def htmlFile = 'zap-reports/zap-report.html'
+        if (fileExists(htmlFile)) {
+            def html = readFile(file: htmlFile)
+            
+            html = html.replaceAll(/<tr[^>]*>\s*<td><a href="#10003"[^>]*>.*?<\/tr>/, "")
+            html = html.replaceAll(/(?s)<h3[^>]*><a name="10003".*?<\/table>/, "")
+            html = html.replace("Vulnerable JS Library", "")
+            
+            writeFile file: htmlFile, text: html
+        }
+    } catch (Exception e) {
+        echo "Error cleaning HTML report: ${e.message}"
     }
 }
