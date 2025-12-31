@@ -68,6 +68,18 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- Security fix: Override httpclient version to fix CVE-2020-13956 -->
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>4.5.14</version>
+            </dependency>
+            <!-- Security fix: Override guava version to fix CVE-2018-10237, CVE-2020-8908, CVE-2023-2976 -->
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>32.0.1-jre</version>
+            </dependency>
             <dependency>
                 <groupId>de.codecentric</groupId>
                 <artifactId>chaos-monkey-spring-boot</artifactId>
@@ -82,24 +94,6 @@
                 <groupId>net.ttddyy.observation</groupId>
                 <artifactId>datasource-micrometer-spring-boot</artifactId>
                 <version>${datasource-micrometer.version}</version>
-            </dependency>
-            <!-- Exclude vulnerable commons-lang:commons-lang and use commons-lang3 instead -->
-            <dependency>
-                <groupId>commons-configuration</groupId>
-                <artifactId>commons-configuration</artifactId>
-                <version>1.10</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-lang</groupId>
-                        <artifactId>commons-lang</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-            <!-- Replace deprecated commons-lang with commons-lang3 -->
-            <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-lang3</artifactId>
-                <version>3.14.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
