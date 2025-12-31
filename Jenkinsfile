@@ -118,7 +118,6 @@ pipeline {
                           -r zap-report.html \
                           -J zap-report.json \
                           -c /zap/zap-rules.conf \
-                          -z "-config pscan.rules(10003).threshold=OFF" \
                           -I || true
 
                         # 6. Extract Reports
