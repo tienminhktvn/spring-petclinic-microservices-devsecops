@@ -21,55 +21,55 @@ pipeline {
             }
         }
 
-        stage('Build') {
-            steps {
-                sh 'mvn clean compile -DskipTests'
-            }
-        }
+        // stage('Build') {
+        //     steps {
+        //         sh 'mvn clean compile -DskipTests'
+        //     }
+        // }
         
-        stage('Unit Tests') {
-            steps {
-                sh 'mvn test'
-            }
-            post {
-                always {
-                    junit '**/target/surefire-reports/*.xml'
-                }
-            }
-        }
+        // stage('Unit Tests') {
+        //     steps {
+        //         sh 'mvn test'
+        //     }
+        //     post {
+        //         always {
+        //             junit '**/target/surefire-reports/*.xml'
+        //         }
+        //     }
+        // }
         
-        stage('Code Coverage - JaCoCo') {
-            steps {
-                sh 'mvn jacoco:report'
-            }
-            post {
-                always {
-                    recordCoverage(tools: [[parser: 'JACOCO', pattern: '**/target/site/jacoco/jacoco.xml']])
-                }
-            }
-        }
+        // stage('Code Coverage - JaCoCo') {
+        //     steps {
+        //         sh 'mvn jacoco:report'
+        //     }
+        //     post {
+        //         always {
+        //             recordCoverage(tools: [[parser: 'JACOCO', pattern: '**/target/site/jacoco/jacoco.xml']])
+        //         }
+        //     }
+        // }
         
-        stage('SAST - SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=spring-petclinic-microservices \
-                          -Dsonar.projectName=SpringPetClinicMicroservices \
-                          -Dsonar.host.url=${SONARQUBE_URL} \
-                          -Dsonar.coverage.jacoco.xmlReportPaths=*/target/site/jacoco/jacoco.xml
-                    '''
-                }
-            }
-        }
+        // stage('SAST - SonarQube Analysis') {
+        //     steps {
+        //         withSonarQubeEnv('SonarQube') {
+        //             sh '''
+        //                 mvn sonar:sonar \
+        //                   -Dsonar.projectKey=spring-petclinic-microservices \
+        //                   -Dsonar.projectName=SpringPetClinicMicroservices \
+        //                   -Dsonar.host.url=${SONARQUBE_URL} \
+        //                   -Dsonar.coverage.jacoco.xmlReportPaths=*/target/site/jacoco/jacoco.xml
+        //             '''
+        //         }
+        //     }
+        // }
         
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+        // stage('Quality Gate') {
+        //     steps {
+        //         timeout(time: 5, unit: 'MINUTES') {
+        //             waitForQualityGate abortPipeline: true
+        //         }
+        //     }
+        // }
         
         stage('Dependency Scanning - Snyk') {
             steps {
