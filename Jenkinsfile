@@ -86,31 +86,53 @@ pipeline {
         
         stage('DAST - OWASP ZAP') {
             steps {
-                sh '''
-                    mkdir -p zap-reports
-                    chmod 777 zap-reports
-                    echo "10003\tIGNORE\t(Vulnerable JS Library)" > zap-rules.conf
+                script {
+                    // Define a unique volume name for this build to prevent conflicts
+                    def zapVolume = "zap-vol-${BUILD_NUMBER}"
+                    
+                    sh """
+                        # 1. Prepare local directory to store results
+                        mkdir -p zap-reports
+                        chmod 777 zap-reports
 
-                    docker rm -f ${ZAP_CONTAINER} || true
+                        # 2. Create a temporary Docker volume
+                        # We use this to satisfy ZAP's requirement that /zap/wrk must be a mount
+                        docker volume create ${zapVolume}
 
-                    docker run -d --name ${ZAP_CONTAINER} \
-                      --network host \
-                      -u 0 \
-                      zaproxy/zap-stable \
-                      sleep 3000
+                        # 3. Clean up any old container
+                        docker rm -f ${ZAP_CONTAINER} || true
 
-                    docker cp zap-rules.conf ${ZAP_CONTAINER}:/zap/zap-rules.conf
+                        # 4. Start ZAP container
+                        # Mount the dummy volume to /zap/wrk
+                        docker run -d --name ${ZAP_CONTAINER} \
+                          --network host \
+                          -u 0 \
+                          -v ${zapVolume}:/zap/wrk:rw \
+                          zaproxy/zap-stable \
+                          sleep 3000
 
-                    docker exec ${ZAP_CONTAINER} zap-baseline.py \
-                      -t ${APP_URL} \
-                      -r zap-report.html \
-                      -J zap-report.json \
-                      -c zap-rules.conf \
-                      -I || true
+                        # 5. Copy rules to container (standard copy)
+                        docker cp zap-rules.conf ${ZAP_CONTAINER}:/zap/zap-rules.conf
 
-                    docker cp ${ZAP_CONTAINER}:/zap/zap-report.html ./zap-reports/zap-report.html || true
-                    docker cp ${ZAP_CONTAINER}:/zap/zap-report.json ./zap-reports/zap-report.json || true
-                '''
+                        # 6. Run Scan
+                        # ZAP writes reports to /zap/wrk (which is inside our dummy volume)
+                        docker exec ${ZAP_CONTAINER} zap-baseline.py \
+                          -t ${APP_URL} \
+                          -r zap-report.html \
+                          -J zap-report.json \
+                          -c /zap/zap-rules.conf \
+                          -I || true
+
+                        # 7. Extract Reports
+                        # We copy the files OUT of the container/volume into our Jenkins workspace
+                        docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.html ./zap-reports/zap-report.html || true
+                        docker cp ${ZAP_CONTAINER}:/zap/wrk/zap-report.json ./zap-reports/zap-report.json || true
+                        
+                        # 8. Cleanup Volume and Container
+                        docker rm -f ${ZAP_CONTAINER} || true
+                        docker volume rm ${zapVolume} || true
+                    """
+                }
                 archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
             }
         }
