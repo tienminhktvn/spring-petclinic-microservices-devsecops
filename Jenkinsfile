@@ -44,19 +44,19 @@ pipeline {
             }
             post {
                 always {
-                    jacoco(
-                        execPattern: '**/target/jacoco.exec',
-                        classPattern: '**/target/classes',
-                        sourcePattern: '**/src/main/java',
-                        exclusionPattern: '**/test/**'
-                    )
+                    // Publish coverage using Jenkins Coverage plugin
+                    publishCoverage adapters: [
+                        jacocoAdapter('**/target/site/jacoco/jacoco.xml')
+                    ]
+                    
+                    // Also publish HTML reports for detailed viewing
                     publishHTML(target: [
                         allowMissing: true,
                         alwaysLinkToLastBuild: true,
                         keepAll: true,
                         reportDir: 'spring-petclinic-api-gateway/target/site/jacoco',
                         reportFiles: 'index.html',
-                        reportName: 'JaCoCo Code Coverage Report'
+                        reportName: 'JaCoCo - API Gateway'
                     ])
                 }
             }
