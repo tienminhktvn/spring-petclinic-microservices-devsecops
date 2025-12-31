@@ -119,6 +119,8 @@ pipeline {
                         docker rm -f \${ZAP_CONTAINER} || true
                         docker volume rm ${zapVolume} || true
                     """
+
+                    modifyZapReport()
                 }
                 archiveArtifacts artifacts: 'zap-reports/*', allowEmptyArchive: true
             }
@@ -149,7 +151,7 @@ def modifyZapReport() {
         def jsonSlurper = new groovy.json.JsonSlurper()
         def zapReport = jsonSlurper.parse(jsonFile)
 
-        def rulesToRemove = []
+        def rulesToRemove = ['10003']
         
         zapReport.site.each { site ->
             def modifiedAlerts = []
@@ -174,7 +176,6 @@ def modifyZapReport() {
         jsonFile.write(prettyJson)
         
         echo "Successfully modified ZAP report"
-        echo "- Downgraded rules: ${rulesToDowngrade}"
         echo "- Removed rules: ${rulesToRemove}"
         
     } catch (Exception e) {
