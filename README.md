@@ -360,7 +360,7 @@ snyk monitor --all-projects
 
 ```bash
 # Run baseline scan
-bash scripts/zap-scan.sh http://192.168.195.115:32424
+bash scripts/zap-scan.sh http://<K8s Cluster IP>:<Ingress Node Port>
 ```
 
 **Expected Result:**
@@ -398,7 +398,7 @@ gitleaks detect --source . --verbose
 docker run --rm -v $(pwd)/zap-reports:/zap/wrk:rw \
   --network host \
   zaproxy/zap-stable zap-baseline.py \
-  -t http://192.168.195.115:32424 \
+  -t http://<K8s Cluster IP>:<Ingress Node Port> \
   -r report.html -I
 ```
 
