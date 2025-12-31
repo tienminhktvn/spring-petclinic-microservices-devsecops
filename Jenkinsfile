@@ -94,7 +94,7 @@ pipeline {
                     
                     # Run ZAP baseline scan
                     docker run --name ${ZAP_CONTAINER} \
-                      -v /zap/wrk \
+                      -v $(pwd):/zap/wrk:rw \
                       -u 0 \
                       --network host \
                       -t zaproxy/zap-stable zap-baseline.py \
