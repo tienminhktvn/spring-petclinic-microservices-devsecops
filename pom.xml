@@ -83,6 +83,24 @@
                 <artifactId>datasource-micrometer-spring-boot</artifactId>
                 <version>${datasource-micrometer.version}</version>
             </dependency>
+            <!-- Exclude vulnerable commons-lang:commons-lang and use commons-lang3 instead -->
+            <dependency>
+                <groupId>commons-configuration</groupId>
+                <artifactId>commons-configuration</artifactId>
+                <version>1.10</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-lang</groupId>
+                        <artifactId>commons-lang</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <!-- Replace deprecated commons-lang with commons-lang3 -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.14.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
