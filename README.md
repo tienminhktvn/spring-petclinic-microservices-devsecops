@@ -50,7 +50,7 @@ Before running the pipeline, ensure you have:
 
 3. **SonarQube Server** (`Manage Jenkins → System → SonarQube servers`):
    - Name: `SonarQube`
-   - URL: `http://192.168.195.115:9000`
+   - URL: `http://<SonarQube URL>:9000`
 
 ---
 
@@ -58,7 +58,7 @@ Before running the pipeline, ensure you have:
 
 ### Step 1.1: Configure SonarQube Server
 
-1. **Login to SonarQube** at `http://192.168.195.115:9000`
+1. **Login to SonarQube** at `http://<SonarQube URL>:9000`
    - Default credentials: `admin/admin`
    - Change password on first login
 
@@ -122,7 +122,7 @@ This step is **required** for the Quality Gate to work properly. Without the web
    - Click **Create**
 
    > **Note**: Replace `<JENKINS_URL>` with your Jenkins server IP/hostname.
-   > Example: `http://192.168.195.115:8080/sonarqube-webhook/`
+   > Example: `http://<JENKINS_URL>:8080/sonarqube-webhook/`
 
 4. **Verify Webhook**
    - After running a pipeline, check the webhook delivery status
@@ -234,37 +234,33 @@ pip3 install pre-commit
 pre-commit --version
 ```
 
-### Step 3.2: Install Gitleaks
-
-```bash
-# Download binary
-wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
-tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
-sudo mv gitleaks /usr/local/bin/
-
-# Verify installation
-gitleaks version
-```
-
-### Step 3.3: Pre-commit Configuration
+### Step 3.2: Pre-commit Configuration
 
 The project includes `.pre-commit-config.yaml` that configures gitleaks:
 
 ```yaml
-# .pre-commit-config.yaml
+# Pre-commit configuration for Spring PetClinic Microservices
 repos:
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.4
     hooks:
       - id: gitleaks
-        name: gitleaks
+        name: gitleaks (pre-commit)
         description: Detect hardcoded secrets using Gitleaks
         entry: gitleaks protect --verbose --redact --staged
         language: golang
         pass_filenames: false
+        stages: [pre-commit]
+      - id: gitleaks
+        name: gitleaks (pre-push)
+        description: Detect hardcoded secrets before push
+        entry: gitleaks detect --source . --verbose --redact
+        language: golang
+        pass_filenames: false
+        stages: [pre-push]
 ```
 
-### Step 3.4: Setup Git Hooks (For All Developers)
+### Step 3.3: Setup Git Hooks (For All Developers)
 
 After cloning the repository, each developer must run:
 
@@ -280,7 +276,7 @@ This will automatically install:
 - **pre-commit hook**: Scans staged changes before each commit
 - **pre-push hook**: Scans entire repo before push (reject push policy)
 
-### Step 3.5: Create Gitleaks Configuration
+### Step 3.4: Create Gitleaks Configuration
 
 Create `.gitleaks.toml` in project root:
 
@@ -326,32 +322,6 @@ id = "private-key"
 description = "Private Key"
 regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP) PRIVATE KEY-----'''
 tags = ["private", "key"]
-```
-
-### Step 3.6: Test Gitleaks
-
-```bash
-# Run pre-commit on all files (first time)
-pre-commit run --all-files
-
-# Run gitleaks manually
-gitleaks detect --source . --verbose
-
-# Generate report
-gitleaks detect --source . --report-path gitleaks-report.json --report-format json
-```
-
-### Step 3.7: Verify Hooks Work
-
-```bash
-# Test commit hook (should block if secrets found)
-echo "aws_secret_access_key=AKIAIOSFODNN7EXAMPLE1234567890123456" > test-secret.txt
-git add test-secret.txt
-git commit -m "test"  # Should be BLOCKED
-
-# Clean up
-rm test-secret.txt
-git reset HEAD
 ```
 
 ---
