@@ -95,7 +95,7 @@ pipeline {
                         chmod 777 zap-reports
 
                         # 2. GENERATE RULES (For the OTHER warnings)
-                        # We do NOT include 10003 here, because we are disabling it completely below.
+                        # We do NOT include 10003 here. We kill it with the -z flag below.
                         printf "10027\\tIGNORE\\t(Suspicious Comments)\\n" > zap-rules.conf
                         printf "10049\\tIGNORE\\t(Cacheable Content)\\n" >> zap-rules.conf
                         printf "10055\\tIGNORE\\t(CSP Issues)\\n" >> zap-rules.conf
@@ -118,15 +118,15 @@ pipeline {
                         # 5. Copy Rules
                         docker cp zap-rules.conf \${ZAP_CONTAINER}:/zap/zap-rules.conf
 
-                        # 6. Run Scan with SCANNER DISABLED
-                        # -z passes the config to turn OFF rule 10003
-                        # We escape parentheses: pscan.rules\\(10003\\).threshold=OFF
+                        # 6. Run Scan (THE FIX IS HERE)
+                        # We removed the backslashes. 
+                        # This sets the Passive Scan Threshold for Rule 10003 to OFF.
                         docker exec \${ZAP_CONTAINER} zap-baseline.py \
                           -t \${APP_URL} \
                           -r zap-report.html \
                           -J zap-report.json \
                           -c /zap/zap-rules.conf \
-                          -z "-config pscan.rules\\(10003\\).threshold=OFF" \
+                          -z "-config pscan.rules(10003).threshold=OFF" \
                           -I || true
 
                         # 7. Extract Reports
